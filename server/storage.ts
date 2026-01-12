@@ -1,38 +1,75 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
+import { 
+  menuItems, orders, orderItems, 
+  type MenuItem, type InsertMenuItem, 
+  type Order, type InsertOrder, 
+  type OrderItem, type InsertOrderItem,
+  type CreateOrderRequest
+} from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getMenuItems(): Promise<MenuItem[]>;
+  createMenuItem(item: InsertMenuItem): Promise<MenuItem>;
+  getOrders(): Promise<Order[]>;
+  createOrder(orderRequest: CreateOrderRequest): Promise<Order>;
+  getOrder(id: number): Promise<(Order & { items: OrderItem[] }) | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getMenuItems(): Promise<MenuItem[]> {
+    return await db.select().from(menuItems).orderBy(menuItems.category, menuItems.name);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
+    const [newItem] = await db.insert(menuItems).values(item).returning();
+    return newItem;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getOrders(): Promise<Order[]> {
+    return await db.select().from(orders).orderBy(desc(orders.createdAt));
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async createOrder(orderRequest: CreateOrderRequest): Promise<Order> {
+    // Start a transaction
+    return await db.transaction(async (tx) => {
+      // 1. Insert the order
+      const [newOrder] = await tx.insert(orders).values({
+        customerName: orderRequest.customerName,
+        customerPhone: orderRequest.customerPhone,
+        totalAmount: orderRequest.totalAmount,
+        paymentMethod: orderRequest.paymentMethod,
+        paymentStatus: 'paid', // Assuming POS orders are paid immediately usually, or pending
+      }).returning();
+
+      // 2. Insert items
+      if (orderRequest.items.length > 0) {
+        await tx.insert(orderItems).values(
+          orderRequest.items.map(item => ({
+            orderId: newOrder.id,
+            menuItemId: item.menuItemId,
+            name: item.name,
+            quantity: item.quantity,
+            priceAtTime: item.priceAtTime,
+            extras: item.extras,
+          }))
+        );
+      }
+
+      return newOrder;
+    });
+  }
+
+  async getOrder(id: number): Promise<(Order & { items: OrderItem[] }) | undefined> {
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, id),
+      with: {
+        items: true,
+      },
+    });
+
+    return order;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
