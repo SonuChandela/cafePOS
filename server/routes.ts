@@ -1,96 +1,68 @@
-import type { Express } from "express";
-import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { api } from "@shared/routes";
-import { z } from "zod";
+import { insertMenuItemSchema, createOrderSchema } from "@shared/schema";
+import { type Express } from "express";
 
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express
-): Promise<Server> {
-  
-  // === API Routes ===
-
-  // Menu
-  app.get(api.menu.list.path, async (req, res) => {
-    const items = await storage.getMenuItems();
-    res.json(items);
-  });
-
-  app.post(api.menu.create.path, async (req, res) => {
+export async function registerRoutes(httpServer: any, app: Express): Promise<void> {
+  app.get("/api/menu", async (_req, res) => {
     try {
-      const input = api.menu.create.input.parse(req.body);
-      const item = await storage.createMenuItem(input);
-      res.status(201).json(item);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
-        });
-      }
-      throw err;
+      const items = await storage.getMenuItems();
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch menu" });
     }
   });
 
-  // Orders
-  app.get(api.orders.list.path, async (req, res) => {
-    const orders = await storage.getOrders();
-    res.json(orders);
+  app.post("/api/menu", async (req, res) => {
+    const parsed = insertMenuItemSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid menu item data" });
+    }
+    const item = await storage.createMenuItem(parsed.data);
+    res.status(201).json(item);
   });
 
-  app.post(api.orders.create.path, async (req, res) => {
+  app.get("/api/orders", async (_req, res) => {
     try {
-      const input = api.orders.create.input.parse(req.body);
-      const order = await storage.createOrder(input);
+      const orders = await storage.getOrders();
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  app.get("/api/orders/:id", async (req, res) => {
+    try {
+      const order = await storage.getOrder(parseInt(req.params.id));
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      res.json(order);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch order" });
+    }
+  });
+
+  app.post("/api/orders", async (req, res) => {
+    const parsed = createOrderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      console.error("Order validation failed:", parsed.error);
+      return res.status(400).json({ message: "Invalid order data", details: parsed.error.format() });
+    }
+    try {
+      const order = await storage.createOrder(parsed.data);
       res.status(201).json(order);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
-        });
-      }
-      throw err;
+    } catch (error) {
+      console.error("Order creation failed:", error);
+      res.status(500).json({ message: "Failed to create order" });
     }
   });
 
-  app.get(api.orders.get.path, async (req, res) => {
-    const order = await storage.getOrder(Number(req.params.id));
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+  app.patch("/api/orders/:id/status", async (req, res) => {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ message: "Status is required" });
+    try {
+      const order = await storage.updateOrderStatus(parseInt(req.params.id), status);
+      res.json(order);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update status" });
     }
-    res.json(order);
   });
-
-  // === Seed Data (Auto-run on start if empty) ===
-  seedDatabase();
-
-  return httpServer;
-}
-
-async function seedDatabase() {
-  try {
-    const items = await storage.getMenuItems();
-    if (items.length === 0) {
-      console.log("Seeding database with menu items...");
-      const seedItems = [
-        { name: "Cappuccino", price: 450, category: "Beverages", description: "Rich espresso with steamed milk foam" },
-        { name: "Latte", price: 400, category: "Beverages", description: "Espresso with steamed milk" },
-        { name: "Iced Americano", price: 350, category: "Beverages", description: "Chilled espresso with water" },
-        { name: "Croissant", price: 300, category: "Food", description: "Buttery flaky pastry" },
-        { name: "Club Sandwich", price: 850, category: "Food", description: "Chicken, bacon, lettuce, tomato" },
-        { name: "Chocolate Cake", price: 500, category: "Dessert", description: "Rich dark chocolate layer cake" },
-        { name: "Green Tea", price: 250, category: "Beverages", description: "Organic japanese sencha" },
-        { name: "Burger", price: 900, category: "Food", description: "Beef patty with cheese and veggies" },
-      ];
-
-      for (const item of seedItems) {
-        await storage.createMenuItem(item);
-      }
-      console.log("Seeding complete!");
-    }
-  } catch (err) {
-    console.error("Error seeding database:", err);
-  }
 }

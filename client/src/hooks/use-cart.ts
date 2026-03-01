@@ -1,40 +1,58 @@
 import { useState, useCallback } from 'react';
 import { type MenuItem } from '@shared/schema';
 
+export interface CartExtra {
+  name: string;
+  price: number;
+}
+
 export interface CartItem {
   menuItemId: number;
   name: string;
-  price: number;
+  price: number; // base price + variation price
   quantity: number;
-  extras?: string;
+  variationName?: string;
+  selectedExtras: CartExtra[];
+  notes?: string;
 }
 
 export function useCart() {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [discount, setDiscount] = useState(0); // in cents
+  const [taxRate, setTaxRate] = useState(5); // percentage
 
-  const addItem = useCallback((menuItem: MenuItem) => {
+  const addItem = useCallback((menuItem: MenuItem, variation?: { name: string; price: number }) => {
     setItems(current => {
-      const existing = current.find(i => i.menuItemId === menuItem.id);
+      const price = variation ? variation.price : menuItem.price;
+      const variationName = variation?.name;
+      
+      const existing = current.find(i => 
+        i.menuItemId === menuItem.id && i.variationName === variationName
+      );
+
       if (existing) {
         return current.map(i => 
-          i.menuItemId === menuItem.id 
+          (i.menuItemId === menuItem.id && i.variationName === variationName)
             ? { ...i, quantity: i.quantity + 1 }
             : i
         );
       }
+
       return [...current, {
         menuItemId: menuItem.id,
         name: menuItem.name,
-        price: menuItem.price,
+        price: price,
         quantity: 1,
-        extras: ''
+        variationName,
+        selectedExtras: [],
+        notes: ''
       }];
     });
   }, []);
 
-  const updateQuantity = useCallback((menuItemId: number, delta: number) => {
+  const updateQuantity = useCallback((menuItemId: number, delta: number, variationName?: string) => {
     setItems(current => current.map(item => {
-      if (item.menuItemId === menuItemId) {
+      if (item.menuItemId === menuItemId && item.variationName === variationName) {
         const newQty = Math.max(0, item.quantity + delta);
         return { ...item, quantity: newQty };
       }
@@ -42,27 +60,56 @@ export function useCart() {
     }).filter(item => item.quantity > 0));
   }, []);
 
-  const updateExtras = useCallback((menuItemId: number, extras: string) => {
+  const toggleExtra = useCallback((menuItemId: number, extra: CartExtra, variationName?: string) => {
+    setItems(current => current.map(item => {
+      if (item.menuItemId === menuItemId && item.variationName === variationName) {
+        const exists = item.selectedExtras.find(e => e.name === extra.name);
+        if (exists) {
+          return { ...item, selectedExtras: item.selectedExtras.filter(e => e.name !== extra.name) };
+        }
+        return { ...item, selectedExtras: [...item.selectedExtras, extra] };
+      }
+      return item;
+    }));
+  }, []);
+
+  const updateNotes = useCallback((menuItemId: number, notes: string, variationName?: string) => {
     setItems(current => current.map(item => 
-      item.menuItemId === menuItemId ? { ...item, extras } : item
+      (item.menuItemId === menuItemId && item.variationName === variationName) ? { ...item, notes } : item
     ));
   }, []);
 
-  const removeItem = useCallback((menuItemId: number) => {
-    setItems(current => current.filter(item => item.menuItemId !== menuItemId));
+  const removeItem = useCallback((menuItemId: number, variationName?: string) => {
+    setItems(current => current.filter(item => !(item.menuItemId === menuItemId && item.variationName === variationName)));
   }, []);
 
-  const clearCart = useCallback(() => setItems([]), []);
+  const clearCart = useCallback(() => {
+    setItems([]);
+    setDiscount(0);
+  }, []);
 
-  const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = items.reduce((sum, item) => {
+    const extrasTotal = item.selectedExtras.reduce((s, e) => s + e.price, 0);
+    return sum + ((item.price + extrasTotal) * item.quantity);
+  }, 0);
+
+  const taxAmount = Math.round(subtotal * (taxRate / 100));
+  const total = Math.max(0, subtotal + taxAmount - discount);
 
   return {
     items,
     addItem,
     updateQuantity,
-    updateExtras,
+    toggleExtra,
+    updateNotes,
     removeItem,
     clearCart,
+    subtotal,
+    taxRate,
+    setTaxRate,
+    taxAmount,
+    discount,
+    setDiscount,
     total
   };
 }

@@ -1,18 +1,21 @@
 import { useState } from "react";
 import { useMenu } from "@/hooks/use-menu";
 import { MenuItem } from "@shared/schema";
-import { Plus, Search, UtensilsCrossed } from "lucide-react";
+import { Plus, Search, ChevronDown, Utensils } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface MenuGridProps {
-  onAdd: (item: MenuItem) => void;
+  onAdd: (item: MenuItem, variation?: { name: string; price: number }) => void;
 }
 
 export function MenuGrid({ onAdd }: MenuGridProps) {
   const { data: menuItems, isLoading } = useMenu();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("All");
+  const [selectedItemForVariation, setSelectedItemForVariation] = useState<MenuItem | null>(null);
 
   const categories = ["All", ...Array.from(new Set(menuItems?.map(i => i.category) || []))];
 
@@ -21,6 +24,11 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
     const matchesCategory = category === "All" || item.category === category;
     return matchesSearch && matchesCategory;
   });
+
+  const getCategoryCount = (cat: string) => {
+    if (cat === "All") return menuItems?.length || 0;
+    return menuItems?.filter(i => i.category === cat).length || 0;
+  };
 
   if (isLoading) {
     return (
@@ -32,19 +40,27 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
     );
   }
 
+  const handleAddClick = (item: MenuItem) => {
+    if (item.variations && item.variations.length > 0) {
+      setSelectedItemForVariation(item);
+    } else {
+      onAdd(item);
+    }
+  };
+
   return (
-    <div className="space-y-8 h-full flex flex-col">
-      <div className="flex flex-col space-y-6">
-        <div className="flex justify-between items-end">
+    <div className="space-y-6 h-full flex flex-col">
+      <div className="flex flex-col space-y-4">
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-[#1A1D1F]">Welcome, Guest</h1>
-            <p className="text-gray-500 mt-1 font-medium">Discover whatever you need easily</p>
+            <h1 className="text-lg font-extrabold text-[#1A1D1F]">Welcome, Guest</h1>
+            <p className="text-gray-400 text-xs font-medium">Discover whatever you need easily</p>
           </div>
-          <div className="relative w-72 hidden lg:block">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <div className="relative w-full lg:w-[450px]">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-6 h-6" />
             <Input 
               placeholder="Search product..." 
-              className="pl-12 h-12 bg-white border-none rounded-2xl shadow-sm focus-visible:ring-primary/20"
+              className="pl-14 h-16 bg-white border border-gray-100 rounded-2xl shadow-sm focus-visible:ring-primary/20 text-xl font-medium"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -58,7 +74,7 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
               onClick={() => setCategory(cat)}
               className={`category-pill ${category === cat ? 'category-pill-active shadow-lg shadow-primary/20' : 'category-pill-inactive'}`}
             >
-              {cat}
+              {cat} ({getCategoryCount(cat)})
             </button>
           ))}
         </div>
@@ -68,7 +84,7 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
         {filteredItems?.map((item) => (
           <div 
             key={item.id}
-            onClick={() => onAdd(item)}
+            onClick={() => handleAddClick(item)}
             className="item-card group"
           >
             <div className="aspect-square rounded-2xl bg-[#F0F2F5] mb-4 overflow-hidden relative">
@@ -76,7 +92,12 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
                 <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-300">
-                  <UtensilsCrossed className="w-16 h-16" />
+                  <Utensils className="w-16 h-16" />
+                </div>
+              )}
+              {item.variations && item.variations.length > 0 && (
+                <div className="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-bold text-primary flex items-center gap-1">
+                  Variations <ChevronDown className="w-3 h-3" />
                 </div>
               )}
               <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -98,11 +119,36 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
 
         {filteredItems?.length === 0 && (
           <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
-            <UtensilsCrossed className="w-16 h-16 mb-4 opacity-10" />
+            <Utensils className="w-16 h-16 mb-4 opacity-10" />
             <p className="text-lg font-medium">No items found</p>
           </div>
         )}
       </div>
+
+      {/* Variation Selection Dialog */}
+      <Dialog open={!!selectedItemForVariation} onOpenChange={(open) => !open && setSelectedItemForVariation(null)}>
+        <DialogContent className="sm:max-w-[400px] rounded-[2rem] p-8">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-extrabold text-[#1A1D1F]">Select Variation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {selectedItemForVariation?.variations?.map((v, i) => (
+              <Button
+                key={i}
+                variant="outline"
+                className="w-full h-16 rounded-2xl flex justify-between px-6 border-gray-100 hover:border-primary hover:text-primary transition-all font-bold"
+                onClick={() => {
+                  onAdd(selectedItemForVariation, v);
+                  setSelectedItemForVariation(null);
+                }}
+              >
+                <span>{v.name}</span>
+                <span>${(v.price / 100).toFixed(2)}</span>
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
