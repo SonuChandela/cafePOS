@@ -32,8 +32,16 @@ export default function Home() {
 
   const handleShare = () => {
     if (!order) return;
+    const itemsList = order.items.map(item => `- ${item.name} x${item.quantity}`).join('\n');
     const message = encodeURIComponent(
-      `Here is your bill from QuickBite:\nOrder #${order.id}\nTotal: $${(order.totalAmount / 100).toFixed(2)}\nThank you for dining with us!`
+      `*Order Receipt from Makaryo POS*\n\n` +
+      `Order ID: #${order.id}\n` +
+      `Customer: ${order.customerName}\n` +
+      `--------------------------\n` +
+      `${itemsList}\n` +
+      `--------------------------\n` +
+      `*Total Amount: $${(order.totalAmount / 100).toFixed(2)}*\n\n` +
+      `Thank you for your order!`
     );
     window.open(`https://wa.me/${order.customerPhone}?text=${message}`, '_blank');
   };
@@ -70,16 +78,16 @@ export default function Home() {
       />
 
       <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
-        <DialogContent className="max-w-[400px] p-0 overflow-hidden bg-transparent border-none shadow-none">
-          <div className="bg-white rounded-lg overflow-hidden shadow-2xl">
+        <DialogContent className="max-w-[420px] p-0 overflow-hidden bg-transparent border-none shadow-none">
+          <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl">
             {order && <ReceiptPreview order={order} />}
             
-            <div className="bg-zinc-100 p-4 flex gap-3 no-print">
-              <Button onClick={handlePrint} className="flex-1 gap-2">
-                <Printer className="w-4 h-4" /> Print
+            <div className="bg-[#F8F9FB] p-8 flex gap-4 no-print">
+              <Button onClick={handlePrint} className="flex-1 h-14 rounded-2xl font-bold gap-2 shadow-lg shadow-primary/20">
+                <Printer className="w-5 h-5" /> Print
               </Button>
-              <Button onClick={handleShare} variant="outline" className="flex-1 gap-2">
-                <Share2 className="w-4 h-4" /> WhatsApp
+              <Button onClick={handleShare} variant="outline" className="flex-1 h-14 rounded-2xl font-bold gap-2 border-gray-200 hover:bg-white hover:border-primary hover:text-primary transition-all">
+                <Share2 className="w-5 h-5" /> WhatsApp
               </Button>
             </div>
           </div>

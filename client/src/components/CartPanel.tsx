@@ -15,113 +15,137 @@ interface CartPanelProps {
 }
 
 export function CartPanel({ items, total, onUpdateQuantity, onUpdateExtras, onRemove, onCheckout }: CartPanelProps) {
-  if (items.length === 0) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 border-l border-border bg-card/50">
-        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-          <ShoppingBag className="w-8 h-8 opacity-50" />
-        </div>
-        <h3 className="text-lg font-semibold text-foreground">Current Order</h3>
-        <p className="text-sm text-center mt-2 max-w-[200px]">
-          Select items from the menu to add them to the order.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-full flex flex-col bg-card border-l border-border shadow-2xl shadow-black/5 z-10 w-full md:w-[400px]">
-      <div className="p-6 border-b border-border">
-        <h2 className="text-xl font-bold font-display flex items-center gap-2">
-          <ShoppingBag className="w-5 h-5 text-primary" />
-          Current Order
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">{items.length} items added</p>
+    <div className="h-full flex flex-col bg-white border-l border-gray-100 w-full md:w-[380px] lg:w-[420px]">
+      <div className="p-8 pb-4">
+        <h2 className="text-2xl font-extrabold text-[#1A1D1F]">Current Order</h2>
+        <div className="flex gap-2 mt-4">
+          <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold uppercase tracking-wider">
+            Table #12
+          </span>
+          <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-bold uppercase tracking-wider">
+            {items.length} Items
+          </span>
+        </div>
       </div>
 
-      <ScrollArea className="flex-1 px-6">
-        <div className="space-y-6 py-6">
-          {items.map((item) => (
-            <div key={item.menuItemId} className="group animate-in slide-in-from-right-5 fade-in duration-300">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h4 className="font-semibold text-foreground">{item.name}</h4>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    ${(item.price / 100).toFixed(2)} x {item.quantity}
-                  </p>
+      <ScrollArea className="flex-1 px-8">
+        {items.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-gray-400 py-20">
+            <ShoppingBag className="w-16 h-16 mb-4 opacity-10" />
+            <p className="font-medium">Your cart is empty</p>
+          </div>
+        ) : (
+          <div className="space-y-8 py-6">
+            {items.map((item) => (
+              <div key={item.menuItemId} className="group animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="flex gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-[#F0F2F5] shrink-0 overflow-hidden">
+                    {/* Placeholder for item image if we had one in cart */}
+                    <div className="w-full h-full flex items-center justify-center text-gray-300">
+                      <UtensilsCrossed className="w-8 h-8" />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-bold text-[#1A1D1F] truncate pr-2">{item.name}</h4>
+                      <p className="font-bold text-[#1A1D1F]">
+                        ${((item.price * item.quantity) / 100).toFixed(2)}
+                      </p>
+                    </div>
+                    <p className="text-sm font-medium text-gray-400 mt-0.5">
+                      ${(item.price / 100).toFixed(2)} / unit
+                    </p>
+                    
+                    <div className="flex items-center justify-between mt-3">
+                      <div className="flex items-center bg-[#F0F2F5] rounded-xl p-1 gap-1">
+                        <button
+                          className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-white transition-colors text-gray-600 disabled:opacity-30"
+                          onClick={() => onUpdateQuantity(item.menuItemId, -1)}
+                          disabled={item.quantity <= 1}
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-extrabold text-[#1A1D1F]">{item.quantity}</span>
+                        <button
+                          className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-white transition-colors text-gray-600"
+                          onClick={() => onUpdateQuantity(item.menuItemId, 1)}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      
+                      <button
+                        className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                        onClick={() => onRemove(item.menuItemId)}
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <p className="font-bold text-foreground">
-                  ${((item.price * item.quantity) / 100).toFixed(2)}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="flex items-center bg-muted rounded-lg p-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 rounded-md hover:bg-background shadow-none"
-                    onClick={() => onUpdateQuantity(item.menuItemId, -1)}
-                  >
-                    <Minus className="w-3 h-3" />
-                  </Button>
-                  <span className="w-8 text-center text-sm font-semibold font-mono">{item.quantity}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 rounded-md hover:bg-background shadow-none"
-                    onClick={() => onUpdateQuantity(item.menuItemId, 1)}
-                  >
-                    <Plus className="w-3 h-3" />
-                  </Button>
-                </div>
-                
                 <Input
-                  className="h-8 text-xs bg-muted/30 border-transparent hover:border-border focus:bg-background transition-colors"
-                  placeholder="Add notes (e.g. no spice)..."
+                  className="mt-3 h-9 text-xs bg-[#F8F9FB] border-none rounded-xl placeholder:text-gray-400 focus-visible:ring-primary/20"
+                  placeholder="Order note..."
                   value={item.extras || ''}
                   onChange={(e) => onUpdateExtras(item.menuItemId, e.target.value)}
                 />
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 -mr-2"
-                  onClick={() => onRemove(item.menuItemId)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </ScrollArea>
 
-      <div className="p-6 bg-muted/30 border-t border-border space-y-4">
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Subtotal</span>
-            <span>${(total / 100).toFixed(2)}</span>
+      <div className="p-8 pt-6 space-y-6">
+        <div className="space-y-3">
+          <div className="flex justify-between text-gray-500 font-medium">
+            <span>Subtotal</span>
+            <span className="text-[#1A1D1F] font-bold">${(total / 100).toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Tax (5%)</span>
-            <span>${((total * 0.05) / 100).toFixed(2)}</span>
+          <div className="flex justify-between text-gray-500 font-medium">
+            <span>Discount</span>
+            <span className="text-[#1A1D1F] font-bold">-$0.00</span>
           </div>
-          <Separator className="my-2" />
-          <div className="flex justify-between text-xl font-bold">
-            <span>Total</span>
-            <span className="text-primary">${((total * 1.05) / 100).toFixed(2)}</span>
+          <Separator className="bg-gray-100" />
+          <div className="flex justify-between items-center pt-2">
+            <span className="text-gray-500 font-medium">Total</span>
+            <span className="text-3xl font-extrabold text-primary">
+              ${(total / 100).toFixed(2)}
+            </span>
           </div>
         </div>
 
         <Button 
-          className="w-full h-12 text-lg font-semibold shadow-xl shadow-primary/20" 
-          size="lg"
+          className="w-full h-14 text-lg font-bold rounded-2xl shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98]" 
           onClick={onCheckout}
+          disabled={items.length === 0}
         >
-          Proceed to Checkout
+          Place Order
         </Button>
       </div>
     </div>
+  );
+}
+
+function UtensilsCrossed({ className }: { className?: string }) {
+  return (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      width="24" height="24" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      className={className}
+    >
+      <path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8" />
+      <path d="M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3" />
+      <path d="m2 22 7.1-7.1" />
+      <path d="m8 22 9-11" />
+      <path d="M15 3h1" />
+      <path d="M19 7v1" />
+    </svg>
   );
 }
