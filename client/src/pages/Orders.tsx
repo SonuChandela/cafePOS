@@ -5,21 +5,46 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Eye, Edit, EyeOff, Menu as MenuIcon } from "lucide-react";
+import { Search, Eye, Edit, EyeOff, Menu as MenuIcon, Printer, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ReceiptPreview } from "@/components/ReceiptPreview";
+import { cn } from "@/lib/utils";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation } from "@tanstack/react-query";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { type OrderWithItems } from "@shared/schema";
 
 export default function Orders() {
   const { data: orders, isLoading } = useOrders();
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
+  const [viewMode, setViewMode] = useState<"view" | "edit" | null>(null);
 
   const filteredOrders = orders?.filter(order => 
     order.customerName?.toLowerCase().includes(search.toLowerCase()) ||
     order.customerPhone?.includes(search) ||
     order.id.toString().includes(search)
   );
+
+  const updateOrderMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PATCH", `/api/orders/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setSelectedOrder(null);
+      setViewMode(null);
+    }
+  });
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   return (
     <div className="flex h-screen w-full bg-[#F8F9FB] overflow-hidden">
@@ -108,6 +133,7 @@ export default function Orders() {
                             <Button 
                               variant="ghost" 
                               size="icon" 
+                              onClick={() => { setSelectedOrder(order); setViewMode("view"); }}
                               className="w-9 h-9 rounded-xl hover:bg-white hover:text-primary hover:shadow-sm"
                             >
                               <Eye className="w-4.5 h-4.5" />
@@ -116,6 +142,7 @@ export default function Orders() {
                               variant="ghost" 
                               size="icon" 
                               disabled={isCompleted}
+                              onClick={() => { setSelectedOrder(order); setViewMode("edit"); }}
                               className={cn(
                                 "w-9 h-9 rounded-xl transition-all",
                                 isCompleted 
@@ -147,10 +174,93 @@ export default function Orders() {
           </Card>
         </main>
       </div>
+
+      {/* Order Detail / Edit Dialog */}
+      <Dialog open={!!selectedOrder} onOpenChange={() => { setSelectedOrder(null); setViewMode(null); }}>
+        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none rounded-[2.5rem] bg-white max-h-[90vh] overflow-y-auto shadow-2xl">
+          {selectedOrder && (
+            <>
+              {viewMode === "view" ? (
+                <div className="p-0">
+                  <ReceiptPreview order={selectedOrder} />
+                  <div className="p-8 bg-gray-50 flex gap-4 no-print border-t border-gray-100">
+                    <Button 
+                      onClick={handlePrint} 
+                      className="flex-1 h-14 rounded-2xl font-bold gap-2 shadow-lg shadow-primary/20"
+                    >
+                      <Printer className="w-5 h-5" /> Print Invoice
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setSelectedOrder(null)}
+                      className="flex-1 h-14 rounded-2xl font-bold border-gray-200"
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-8">
+                  <DialogHeader className="mb-8">
+                    <DialogTitle className="text-2xl font-extrabold text-[#1A1D1F]">Modify Order Status</DialogTitle>
+                    <p className="text-gray-400 font-medium">Update the current status for order #{selectedOrder.id}</p>
+                  </DialogHeader>
+                  
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#1A1D1F]">Order Status</label>
+                      <Select 
+                        defaultValue={selectedOrder.orderStatus}
+                        onValueChange={(val) => updateOrderMutation.mutate({ id: selectedOrder.id, data: { orderStatus: val } })}
+                      >
+                        <SelectTrigger className="h-14 bg-[#F8F9FB] border-none rounded-2xl shadow-sm focus:ring-primary/20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-2xl border-none shadow-xl">
+                          <SelectItem value="preparing" className="py-3 rounded-xl">Preparing</SelectItem>
+                          <SelectItem value="ready" className="py-3 rounded-xl">Ready</SelectItem>
+                          <SelectItem value="completed" className="py-3 rounded-xl">Completed</SelectItem>
+                          <SelectItem value="cancelled" className="py-3 rounded-xl">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-[#1A1D1F]">Payment Status</label>
+                      <Select 
+                        defaultValue={selectedOrder.paymentStatus}
+                        onValueChange={(val) => updateOrderMutation.mutate({ id: selectedOrder.id, data: { paymentStatus: val } })}
+                      >
+                        <SelectTrigger className="h-14 bg-[#F8F9FB] border-none rounded-2xl shadow-sm focus:ring-primary/20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-2xl border-none shadow-xl">
+                          <SelectItem value="pending" className="py-3 rounded-xl">Pending</SelectItem>
+                          <SelectItem value="paid" className="py-3 rounded-xl">Paid</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Button 
+                      className="w-full h-14 rounded-2xl font-bold mt-4"
+                      onClick={() => setSelectedOrder(null)}
+                    >
+                      Done
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Hidden print container */}
+      {selectedOrder && viewMode === "view" && (
+        <div className="print-only">
+          <ReceiptPreview order={selectedOrder} />
+        </div>
+      )}
     </div>
   );
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
 }

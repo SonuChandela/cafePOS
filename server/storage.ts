@@ -10,6 +10,7 @@ export interface IStorage {
   getOrder(id: number): Promise<OrderWithItems | undefined>;
   createOrder(order: CreateOrderRequest): Promise<Order>;
   updateOrderStatus(id: number, status: string): Promise<Order>;
+  updateOrder(id: number, data: { orderStatus?: string; paymentStatus?: string }): Promise<Order>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -85,52 +86,109 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return updatedOrder;
   }
+
+  async updateOrder(id: number, data: { orderStatus?: string; paymentStatus?: string }): Promise<Order> {
+    const [updatedOrder] = await db
+      .update(orders)
+      .set(data)
+      .where(eq(orders.id, id))
+      .returning();
+    return updatedOrder;
+  }
 }
 
 export const storage = new DatabaseStorage();
 
-// Seed data with variations and extras
 async function seed() {
   const existing = await storage.getMenuItems();
-  if (existing.length === 0) {
-    const items: InsertMenuItem[] = [
-      {
-        name: "Pizza",
-        price: 1000,
-        category: "Food",
-        description: "Delicious cheesy pizza",
-        variations: [
-          { name: "Small", price: 800 },
-          { name: "Medium", price: 1200 },
-          { name: "Large", price: 1600 }
-        ],
-        extras: [
-          { name: "Extra Cheese", price: 200 },
-          { name: "Mushrooms", price: 150 }
-        ]
-      },
-      {
-        name: "Burger",
-        price: 500,
-        category: "Food",
-        description: "Juicy beef burger",
-        extras: [
-          { name: "Cheese", price: 100 },
-          { name: "Bacon", price: 150 }
-        ]
-      },
-      {
-        name: "Cappuccino",
-        price: 350,
-        category: "Beverages",
-        description: "Classic Italian coffee"
-      }
-    ];
-    for (const item of items) {
-      await storage.createMenuItem(item);
-    }
-    console.log("Database seeded with variations and extras!");
+  // Clear existing items to re-seed with Pizzas and variations
+  if (existing.length > 0) {
+    await db.delete(menuItems);
   }
+
+  const items: InsertMenuItem[] = [
+    {
+      name: "Margherita Pizza",
+      price: 1200,
+      category: "Pizzas",
+      description: "Classic tomato and mozzarella",
+      variations: [
+        { name: "SMALL", price: 1000 },
+        { name: "MEDIUM", price: 1400 },
+        { name: "LARGE", price: 1800 }
+      ],
+      extras: [
+        { name: "Extra Cheese", price: 200 },
+        { name: "Olive Oil", price: 50 }
+      ]
+    },
+    {
+      name: "Pepperoni Pizza",
+      price: 1500,
+      category: "Pizzas",
+      description: "Spicy pepperoni with double cheese",
+      variations: [
+        { name: "SMALL", price: 1200 },
+        { name: "MEDIUM", price: 1600 },
+        { name: "LARGE", price: 2000 }
+      ],
+      extras: [
+        { name: "Extra Pepperoni", price: 300 },
+        { name: "Jalapenos", price: 100 }
+      ]
+    },
+    {
+      name: "Veggie Supreme Pizza",
+      price: 1400,
+      category: "Pizzas",
+      description: "Mushrooms, onions, peppers, and olives",
+      variations: [
+        { name: "SMALL", price: 1100 },
+        { name: "MEDIUM", price: 1500 },
+        { name: "LARGE", price: 1900 }
+      ],
+      extras: [
+        { name: "Extra Veggies", price: 150 },
+        { name: "Feta Cheese", price: 250 }
+      ]
+    },
+    {
+      name: "BBQ Chicken Pizza",
+      price: 1600,
+      category: "Pizzas",
+      description: "Grilled chicken with BBQ sauce",
+      variations: [
+        { name: "SMALL", price: 1300 },
+        { name: "MEDIUM", price: 1700 },
+        { name: "LARGE", price: 2100 }
+      ],
+      extras: [
+        { name: "Red Onions", price: 50 },
+        { name: "Sweetcorn", price: 80 }
+      ]
+    },
+    {
+      name: "Classic Burger",
+      price: 800,
+      category: "Burgers",
+      description: "Beef patty with lettuce and tomato",
+      extras: [
+        { name: "Cheese Slice", price: 50 },
+        { name: "Beef Bacon", price: 200 }
+      ]
+    },
+    {
+      name: "Cappuccino",
+      price: 450,
+      category: "Beverages",
+      description: "Rich espresso with steamed milk"
+    }
+  ];
+
+  for (const item of items) {
+    await storage.createMenuItem(item);
+  }
+  console.log("Database seeded with Pizzas and variations!");
 }
 
 seed().catch(console.error);

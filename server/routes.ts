@@ -55,14 +55,13 @@ export async function registerRoutes(httpServer: any, app: Express): Promise<voi
     }
   });
 
-  app.patch("/api/orders/:id/status", async (req, res) => {
-    const { status } = req.body;
-    if (!status) return res.status(400).json({ message: "Status is required" });
+  app.patch("/api/orders/:id", async (req, res) => {
+    const { orderStatus, paymentStatus } = req.body;
     try {
-      const order = await storage.updateOrderStatus(parseInt(req.params.id), status);
+      const order = await storage.updateOrder(parseInt(req.params.id), { orderStatus, paymentStatus });
       res.json(order);
     } catch (error) {
-      res.status(500).json({ message: "Failed to update status" });
+      res.status(500).json({ message: "Failed to update order" });
     }
   });
 }

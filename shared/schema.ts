@@ -12,7 +12,7 @@ export const menuItems = pgTable("menu_items", {
   description: text("description"),
   image: text("image"),
   available: boolean("available").default(true).notNull(),
-  // Support for variations: [{ name: "Small", price: 1000 }, { name: "Large", price: 1500 }]
+  // Support for variations: [{ name: "SMALL", price: 1000 }, { name: "MEDIUM", price: 1500 }, { name: "LARGE", price: 2000 }]
   variations: jsonb("variations").$type<{ name: string; price: number }[]>(),
   // Support for extra add-ons: [{ name: "Extra Cheese", price: 200 }]
   extras: jsonb("extras").$type<{ name: string; price: number }[]>(),
