@@ -12,9 +12,7 @@ export const menuItems = pgTable("menu_items", {
   description: text("description"),
   image: text("image"),
   available: boolean("available").default(true).notNull(),
-  // Support for variations: [{ name: "SMALL", price: 1000 }, { name: "MEDIUM", price: 1500 }, { name: "LARGE", price: 2000 }]
   variations: jsonb("variations").$type<{ name: string; price: number }[]>(),
-  // Support for extra add-ons: [{ name: "Extra Cheese", price: 200 }]
   extras: jsonb("extras").$type<{ name: string; price: number }[]>(),
 });
 
@@ -29,7 +27,7 @@ export const orders = pgTable("orders", {
   discountAmount: integer("discount_amount").notNull().default(0),
   paymentMethod: text("payment_method").notNull(),
   paymentStatus: text("payment_status").default('pending').notNull(),
-  orderStatus: text("order_status").default('preparing').notNull(), // 'preparing', 'ready', 'completed', 'cancelled'
+  orderStatus: text("order_status").default('preparing').notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -39,10 +37,23 @@ export const orderItems = pgTable("order_items", {
   menuItemId: integer("menu_item_id").notNull(),
   name: text("name").notNull(),
   quantity: integer("quantity").notNull(),
-  priceAtTime: integer("price_at_time").notNull(), // Price including variation
+  priceAtTime: integer("price_at_time").notNull(),
   variationName: text("variation_name"),
-  extras: text("extras"), // Selected extras as JSON string or comma separated
+  extras: text("extras"),
   extrasAmount: integer("extras_amount").notNull().default(0),
+});
+
+export const bookings = pgTable("bookings", {
+  id: serial("id").primaryKey(),
+  tableName: text("table_name").notNull(),
+  tableNumber: text("table_number").notNull(),
+  customerMobile: text("customer_mobile").notNull(),
+  bookingDate: text("booking_date").notNull(),
+  bookingTime: text("booking_time").notNull(),
+  bookingCharge: integer("booking_charge").notNull(),
+  advanceReceived: integer("advance_received").notNull(),
+  status: text("status").default('confirmed').notNull(), // 'confirmed', 'completed', 'cancelled'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // === RELATIONS ===
@@ -61,15 +72,16 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 export const insertMenuItemSchema = createInsertSchema(menuItems).omit({ id: true });
 export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
 export const insertOrderItemSchema = createInsertSchema(orderItems).omit({ id: true });
+export const insertBookingSchema = createInsertSchema(bookings).omit({ id: true, createdAt: true });
 
 // === EXPLICIT API TYPES ===
 export type MenuItem = typeof menuItems.$inferSelect;
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
-
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
+export type Booking = typeof bookings.$inferSelect;
+export type InsertBooking = z.infer<typeof insertBookingSchema>;
 
-// Composite type for creating an order with items
 export const createOrderSchema = insertOrderSchema.extend({
   items: z.array(z.object({
     menuItemId: z.number(),
@@ -83,5 +95,4 @@ export const createOrderSchema = insertOrderSchema.extend({
 });
 
 export type CreateOrderRequest = z.infer<typeof createOrderSchema>;
-
 export type OrderWithItems = Order & { items: OrderItem[] };

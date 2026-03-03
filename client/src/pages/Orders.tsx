@@ -126,7 +126,7 @@ export default function Orders() {
                           </Badge>
                         </TableCell>
                         <TableCell className="font-extrabold text-[#1A1D1F]">
-                          ${(order.totalAmount / 100).toFixed(2)}
+                          ₹{(order.totalAmount / 100).toFixed(2)}
                         </TableCell>
                         <TableCell className="text-right pr-8">
                           <div className="flex justify-end gap-2">

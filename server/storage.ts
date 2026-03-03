@@ -1,4 +1,4 @@
-import { menuItems, orders, orderItems, type MenuItem, type InsertMenuItem, type Order, type CreateOrderRequest, type OrderWithItems } from "@shared/schema";
+import { menuItems, orders, orderItems, bookings, type MenuItem, type InsertMenuItem, type Order, type CreateOrderRequest, type OrderWithItems, type Booking, type InsertBooking } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -9,8 +9,9 @@ export interface IStorage {
   getOrders(): Promise<OrderWithItems[]>;
   getOrder(id: number): Promise<OrderWithItems | undefined>;
   createOrder(order: CreateOrderRequest): Promise<Order>;
-  updateOrderStatus(id: number, status: string): Promise<Order>;
-  updateOrder(id: number, data: { orderStatus?: string; paymentStatus?: string }): Promise<Order>;
+  updateOrder(id: number, data: any): Promise<Order>;
+  getBookings(): Promise<Booking[]>;
+  createBooking(booking: InsertBooking): Promise<Booking>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -78,22 +79,18 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updateOrderStatus(id: number, status: string): Promise<Order> {
-    const [updatedOrder] = await db
-      .update(orders)
-      .set({ orderStatus: status })
-      .where(eq(orders.id, id))
-      .returning();
+  async updateOrder(id: number, data: any): Promise<Order> {
+    const [updatedOrder] = await db.update(orders).set(data).where(eq(orders.id, id)).returning();
     return updatedOrder;
   }
 
-  async updateOrder(id: number, data: { orderStatus?: string; paymentStatus?: string }): Promise<Order> {
-    const [updatedOrder] = await db
-      .update(orders)
-      .set(data)
-      .where(eq(orders.id, id))
-      .returning();
-    return updatedOrder;
+  async getBookings(): Promise<Booking[]> {
+    return await db.select().from(bookings).orderBy(desc(bookings.createdAt));
+  }
+
+  async createBooking(booking: InsertBooking): Promise<Booking> {
+    const [newBooking] = await db.insert(bookings).values(booking).returning();
+    return newBooking;
   }
 }
 
@@ -101,10 +98,7 @@ export const storage = new DatabaseStorage();
 
 async function seed() {
   const existing = await storage.getMenuItems();
-  // Clear existing items to re-seed with Pizzas and variations
-  if (existing.length > 0) {
-    await db.delete(menuItems);
-  }
+  if (existing.length > 0) return;
 
   const items: InsertMenuItem[] = [
     {
@@ -188,7 +182,6 @@ async function seed() {
   for (const item of items) {
     await storage.createMenuItem(item);
   }
-  console.log("Database seeded with Pizzas and variations!");
 }
 
 seed().catch(console.error);

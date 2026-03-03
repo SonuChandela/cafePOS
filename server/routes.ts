@@ -1,5 +1,5 @@
 import { storage } from "./storage";
-import { insertMenuItemSchema, createOrderSchema } from "@shared/schema";
+import { insertMenuItemSchema, createOrderSchema, insertBookingSchema } from "@shared/schema";
 import { type Express } from "express";
 
 export async function registerRoutes(httpServer: any, app: Express): Promise<void> {
@@ -43,25 +43,45 @@ export async function registerRoutes(httpServer: any, app: Express): Promise<voi
   app.post("/api/orders", async (req, res) => {
     const parsed = createOrderSchema.safeParse(req.body);
     if (!parsed.success) {
-      console.error("Order validation failed:", parsed.error);
-      return res.status(400).json({ message: "Invalid order data", details: parsed.error.format() });
+      return res.status(400).json({ message: "Invalid order data" });
     }
     try {
       const order = await storage.createOrder(parsed.data);
       res.status(201).json(order);
     } catch (error) {
-      console.error("Order creation failed:", error);
       res.status(500).json({ message: "Failed to create order" });
     }
   });
 
   app.patch("/api/orders/:id", async (req, res) => {
-    const { orderStatus, paymentStatus } = req.body;
     try {
-      const order = await storage.updateOrder(parseInt(req.params.id), { orderStatus, paymentStatus });
+      const order = await storage.updateOrder(parseInt(req.params.id), req.body);
       res.json(order);
     } catch (error) {
       res.status(500).json({ message: "Failed to update order" });
+    }
+  });
+
+  // Booking Routes
+  app.get("/api/bookings", async (_req, res) => {
+    try {
+      const bookings = await storage.getBookings();
+      res.json(bookings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  app.post("/api/bookings", async (req, res) => {
+    const parsed = insertBookingSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid booking data" });
+    }
+    try {
+      const booking = await storage.createBooking(parsed.data);
+      res.status(201).json(booking);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create booking" });
     }
   });
 }
