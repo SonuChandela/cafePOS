@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Calendar, Users, Printer, Plus, Menu as MenuIcon, Phone, User, Hash, Clock, Wallet } from "lucide-react";
+import { Search, Calendar, Printer, Plus, Menu as MenuIcon, Phone, User, Hash, Clock, Wallet } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -216,7 +217,6 @@ export default function Bookings() {
         </main>
       </div>
 
-      {/* Booking Print Modal (Hidden unless printing) */}
       {selectedBooking && (
         <div className="print-only">
           <div className="p-10 bg-white min-h-screen text-[#1A1D1F]">
