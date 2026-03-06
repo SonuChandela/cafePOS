@@ -107,7 +107,7 @@ export default function Home() {
     <div className="flex h-screen w-full bg-[#F8F9FB] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       
-      <main className="flex-1 flex flex-col h-full relative">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Header with Status and Time */}
         <header className="p-4 md:p-6 flex items-center justify-between bg-white border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
@@ -147,9 +147,9 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           <MenuGrid onAdd={addItem} />
-        </div>
+        </main>
 
         {/* Floating Cart Button (Right Bottom) */}
         <button 
@@ -202,7 +202,7 @@ export default function Home() {
             />
           </div>
         </div>
-      </main>
+      </div>
 
       <CheckoutDialog 
         open={checkoutOpen} 

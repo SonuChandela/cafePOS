@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Calendar, Printer, Plus, Menu as MenuIcon, Phone, User, Hash, Clock, Wallet, Trash2, Edit } from "lucide-react";
-import { format, isSameDay } from "date-fns";
+import { Search, Calendar, Printer, Plus, Menu as MenuIcon, Phone, User, Hash, Clock, Wallet, Trash2, Edit, Users } from "lucide-react";
+import { format, isSameDay, parseISO } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -74,8 +74,13 @@ export default function Bookings() {
   );
 
   const handleDelete = (b: any) => {
-    if (isSameDay(new Date(b.bookingDate), new Date())) {
-      toast({ title: "Cannot Delete", description: "Bookings for the same day cannot be deleted.", variant: "destructive" });
+    const today = format(new Date(), "yyyy-MM-dd");
+    if (b.bookingDate === today) {
+      toast({ 
+        title: "Cannot Delete", 
+        description: "Bookings for the same day cannot be deleted.", 
+        variant: "destructive" 
+      });
       return;
     }
     deleteBookingMutation.mutate(b.id);
