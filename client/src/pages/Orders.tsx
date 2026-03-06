@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Eye, Edit, EyeOff, Menu as MenuIcon, Printer, X } from "lucide-react";
+import { Search, Eye, Edit, EyeOff, Menu as MenuIcon, Printer, X, Plus, Trash2, Tag, Utensils } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type OrderWithItems } from "@shared/schema";
+import { Label } from "@/components/ui/label";
 
 export default function Orders() {
   const { data: orders, isLoading } = useOrders();
@@ -64,7 +65,7 @@ export default function Orders() {
             <div className="relative w-full lg:w-96">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
               <Input 
-                placeholder="Search by ID, name, phone..." 
+                placeholder="Search orders..." 
                 className="pl-12 h-14 bg-white border-none rounded-2xl shadow-sm focus-visible:ring-primary/20 font-medium"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -74,17 +75,17 @@ export default function Orders() {
         </header>
 
         <main className="flex-1 overflow-auto p-8 pt-4">
-          <Card className="rounded-[2rem] border-none shadow-sm overflow-hidden">
+          <Card className="rounded-[2.5rem] border-none shadow-sm overflow-hidden bg-white">
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="bg-gray-50/50">
                   <TableRow className="hover:bg-transparent border-gray-100">
-                    <TableHead className="font-bold text-[#1A1D1F] h-14 pl-8">Order #</TableHead>
-                    <TableHead className="font-bold text-[#1A1D1F]">Date</TableHead>
-                    <TableHead className="font-bold text-[#1A1D1F]">Customer</TableHead>
-                    <TableHead className="font-bold text-[#1A1D1F]">Status</TableHead>
-                    <TableHead className="font-bold text-[#1A1D1F]">Amount</TableHead>
-                    <TableHead className="font-bold text-[#1A1D1F] text-right pr-8">Actions</TableHead>
+                    <TableHead className="font-bold text-[#1A1D1F] h-14 pl-8 uppercase text-[10px] tracking-widest">ID</TableHead>
+                    <TableHead className="font-bold text-[#1A1D1F] uppercase text-[10px] tracking-widest">Customer</TableHead>
+                    <TableHead className="font-bold text-[#1A1D1F] uppercase text-[10px] tracking-widest">Status</TableHead>
+                    <TableHead className="font-bold text-[#1A1D1F] uppercase text-[10px] tracking-widest">Payment</TableHead>
+                    <TableHead className="font-bold text-[#1A1D1F] uppercase text-[10px] tracking-widest">Amount</TableHead>
+                    <TableHead className="font-bold text-[#1A1D1F] text-right pr-8 uppercase text-[10px] tracking-widest">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -92,30 +93,26 @@ export default function Orders() {
                     Array.from({ length: 5 }).map((_, i) => (
                       <TableRow key={i} className="border-gray-50">
                         <TableCell className="pl-8"><Skeleton className="h-4 w-12" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell className="pr-8"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                       </TableRow>
                     ))
                   ) : filteredOrders?.map((order) => {
-                    const isCompleted = order.orderStatus === 'completed';
                     return (
                       <TableRow key={order.id} className="border-gray-50 group hover:bg-gray-50/50 transition-colors">
                         <TableCell className="font-bold text-[#1A1D1F] pl-8">#{order.id}</TableCell>
-                        <TableCell className="text-gray-500 font-medium">
-                          {format(new Date(order.createdAt), "MMM d, HH:mm")}
-                        </TableCell>
                         <TableCell>
                           <div className="font-bold text-[#1A1D1F]">{order.customerName}</div>
-                          <div className="text-xs text-gray-400 font-medium">{order.customerPhone}</div>
+                          <div className="text-[10px] text-gray-400 font-bold uppercase">{format(new Date(order.createdAt), "dd MMM, HH:mm")}</div>
                         </TableCell>
                         <TableCell>
                           <Badge 
                             variant="secondary" 
                             className={cn(
-                              "font-bold uppercase tracking-wider text-[10px] px-2.5 py-0.5 rounded-full border-none",
+                              "font-black uppercase tracking-widest text-[10px] px-2.5 py-0.5 rounded-full",
                               order.orderStatus === 'preparing' && "bg-orange-100 text-orange-600",
                               order.orderStatus === 'ready' && "bg-blue-100 text-blue-600",
                               order.orderStatus === 'completed' && "bg-green-100 text-green-600",
@@ -125,7 +122,15 @@ export default function Orders() {
                             {order.orderStatus}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-extrabold text-[#1A1D1F]">
+                        <TableCell>
+                          <Badge variant="outline" className={cn(
+                            "text-[9px] font-black uppercase tracking-widest border-none px-2",
+                            order.paymentStatus === 'paid' ? "text-green-500 bg-green-50" : "text-amber-500 bg-amber-50"
+                          )}>
+                            {order.paymentStatus}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-black text-[#1A1D1F]">
                           ₹{(order.totalAmount / 100).toFixed(2)}
                         </TableCell>
                         <TableCell className="text-right pr-8">
@@ -141,14 +146,8 @@ export default function Orders() {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              disabled={isCompleted}
                               onClick={() => { setSelectedOrder(order); setViewMode("edit"); }}
-                              className={cn(
-                                "w-9 h-9 rounded-xl transition-all",
-                                isCompleted 
-                                  ? "opacity-30 cursor-not-allowed" 
-                                  : "hover:bg-white hover:text-primary hover:shadow-sm"
-                              )}
+                              className="w-9 h-9 rounded-xl hover:bg-white hover:text-primary hover:shadow-sm"
                             >
                               <Edit className="w-4.5 h-4.5" />
                             </Button>
@@ -157,17 +156,6 @@ export default function Orders() {
                       </TableRow>
                     );
                   })}
-                  
-                  {filteredOrders?.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-20 text-gray-400">
-                        <div className="flex flex-col items-center">
-                          <EyeOff className="w-12 h-12 mb-4 opacity-10" />
-                          <p className="font-medium">No orders found</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -175,92 +163,94 @@ export default function Orders() {
         </main>
       </div>
 
-      {/* Order Detail / Edit Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => { setSelectedOrder(null); setViewMode(null); }}>
-        <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none rounded-[2.5rem] bg-white max-h-[90vh] overflow-y-auto shadow-2xl">
+        <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none rounded-[2.5rem] bg-white max-h-[90vh] overflow-y-auto shadow-2xl">
           {selectedOrder && (
             <>
               {viewMode === "view" ? (
                 <div className="p-0">
                   <ReceiptPreview order={selectedOrder} />
                   <div className="p-8 bg-gray-50 flex gap-4 no-print border-t border-gray-100">
-                    <Button 
-                      onClick={handlePrint} 
-                      className="flex-1 h-14 rounded-2xl font-bold gap-2 shadow-lg shadow-primary/20"
-                    >
+                    <Button onClick={handlePrint} className="flex-1 h-14 rounded-2xl font-bold gap-2">
                       <Printer className="w-5 h-5" /> Print Invoice
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setSelectedOrder(null)}
-                      className="flex-1 h-14 rounded-2xl font-bold border-gray-200"
-                    >
-                      Close
-                    </Button>
+                    <Button variant="outline" onClick={() => setSelectedOrder(null)} className="flex-1 h-14 rounded-2xl font-bold">Close</Button>
                   </div>
                 </div>
               ) : (
                 <div className="p-8">
                   <DialogHeader className="mb-8">
-                    <DialogTitle className="text-2xl font-extrabold text-[#1A1D1F]">Modify Order Status</DialogTitle>
-                    <p className="text-gray-400 font-medium">Update the current status for order #{selectedOrder.id}</p>
+                    <DialogTitle className="text-2xl font-black text-[#1A1D1F]">Edit Order Details</DialogTitle>
+                    <p className="text-gray-400 font-medium">Update status and order notes</p>
                   </DialogHeader>
                   
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-[#1A1D1F]">Order Status</label>
-                      <Select 
-                        defaultValue={selectedOrder.orderStatus}
-                        onValueChange={(val) => updateOrderMutation.mutate({ id: selectedOrder.id, data: { orderStatus: val } })}
-                      >
-                        <SelectTrigger className="h-14 bg-[#F8F9FB] border-none rounded-2xl shadow-sm focus:ring-primary/20">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-none shadow-xl">
-                          <SelectItem value="preparing" className="py-3 rounded-xl">Preparing</SelectItem>
-                          <SelectItem value="ready" className="py-3 rounded-xl">Ready</SelectItem>
-                          <SelectItem value="completed" className="py-3 rounded-xl">Completed</SelectItem>
-                          <SelectItem value="cancelled" className="py-3 rounded-xl">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  <form 
+                    className="space-y-6"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.currentTarget);
+                      updateOrderMutation.mutate({
+                        id: selectedOrder.id,
+                        data: {
+                          orderStatus: formData.get("orderStatus"),
+                          paymentStatus: formData.get("paymentStatus"),
+                          notes: formData.get("notes"),
+                        }
+                      });
+                    }}
+                  >
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="font-black text-[10px] uppercase tracking-widest text-gray-400">Order Status</Label>
+                        <Select name="orderStatus" defaultValue={selectedOrder.orderStatus}>
+                          <SelectTrigger className="h-14 bg-[#F8F9FB] border-none rounded-2xl font-bold">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-2xl border-none shadow-xl">
+                            <SelectItem value="preparing" className="py-3 rounded-xl">Preparing</SelectItem>
+                            <SelectItem value="ready" className="py-3 rounded-xl">Ready</SelectItem>
+                            <SelectItem value="completed" className="py-3 rounded-xl">Completed</SelectItem>
+                            <SelectItem value="cancelled" className="py-3 rounded-xl">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="font-black text-[10px] uppercase tracking-widest text-gray-400">Payment Status</Label>
+                        <Select name="paymentStatus" defaultValue={selectedOrder.paymentStatus}>
+                          <SelectTrigger className="h-14 bg-[#F8F9FB] border-none rounded-2xl font-bold">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-2xl border-none shadow-xl">
+                            <SelectItem value="pending" className="py-3 rounded-xl">Pending</SelectItem>
+                            <SelectItem value="paid" className="py-3 rounded-xl">Paid</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-[#1A1D1F]">Payment Status</label>
-                      <Select 
-                        defaultValue={selectedOrder.paymentStatus}
-                        onValueChange={(val) => updateOrderMutation.mutate({ id: selectedOrder.id, data: { paymentStatus: val } })}
-                      >
-                        <SelectTrigger className="h-14 bg-[#F8F9FB] border-none rounded-2xl shadow-sm focus:ring-primary/20">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-none shadow-xl">
-                          <SelectItem value="pending" className="py-3 rounded-xl">Pending</SelectItem>
-                          <SelectItem value="paid" className="py-3 rounded-xl">Paid</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label className="font-black text-[10px] uppercase tracking-widest text-gray-400">Order Notes (Required)</Label>
+                      <Input 
+                        name="notes" 
+                        required 
+                        placeholder="Add important details here..." 
+                        defaultValue={selectedOrder.notes || ""}
+                        className="h-14 bg-[#F8F9FB] border-none rounded-2xl font-bold"
+                      />
                     </div>
 
-                    <Button 
-                      className="w-full h-14 rounded-2xl font-bold mt-4"
-                      onClick={() => setSelectedOrder(null)}
-                    >
-                      Done
-                    </Button>
-                  </div>
+                    <div className="pt-4 flex gap-3">
+                      <Button variant="outline" type="button" onClick={() => setSelectedOrder(null)} className="flex-1 h-14 rounded-2xl font-bold">Cancel</Button>
+                      <Button type="submit" disabled={updateOrderMutation.isPending} className="flex-1 h-14 rounded-2xl font-black uppercase tracking-wider">Save Changes</Button>
+                    </div>
+                  </form>
                 </div>
               )}
             </>
           )}
         </DialogContent>
       </Dialog>
-      
-      {/* Hidden print container */}
-      {selectedOrder && viewMode === "view" && (
-        <div className="print-only">
-          <ReceiptPreview order={selectedOrder} />
-        </div>
-      )}
     </div>
   );
 }

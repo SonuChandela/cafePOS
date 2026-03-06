@@ -30,16 +30,6 @@ export async function registerRoutes(httpServer: any, app: Express): Promise<voi
     }
   });
 
-  app.get("/api/orders/:id", async (req, res) => {
-    try {
-      const order = await storage.getOrder(parseInt(req.params.id));
-      if (!order) return res.status(404).json({ message: "Order not found" });
-      res.json(order);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch order" });
-    }
-  });
-
   app.post("/api/orders", async (req, res) => {
     const parsed = createOrderSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -62,7 +52,6 @@ export async function registerRoutes(httpServer: any, app: Express): Promise<voi
     }
   });
 
-  // Booking Routes
   app.get("/api/bookings", async (_req, res) => {
     try {
       const bookings = await storage.getBookings();
@@ -73,15 +62,29 @@ export async function registerRoutes(httpServer: any, app: Express): Promise<voi
   });
 
   app.post("/api/bookings", async (req, res) => {
-    const parsed = insertBookingSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: "Invalid booking data" });
-    }
     try {
-      const booking = await storage.createBooking(parsed.data);
+      const booking = await storage.createBooking(req.body);
       res.status(201).json(booking);
     } catch (error) {
       res.status(500).json({ message: "Failed to create booking" });
+    }
+  });
+
+  app.patch("/api/bookings/:id", async (req, res) => {
+    try {
+      const booking = await storage.updateBooking(parseInt(req.params.id), req.body);
+      res.json(booking);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update booking" });
+    }
+  });
+
+  app.delete("/api/bookings/:id", async (req, res) => {
+    try {
+      await storage.deleteBooking(parseInt(req.params.id));
+      res.json({ message: "Booking deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete booking" });
     }
   });
 }

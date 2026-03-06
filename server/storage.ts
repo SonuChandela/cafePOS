@@ -11,7 +11,9 @@ export interface IStorage {
   createOrder(order: CreateOrderRequest): Promise<Order>;
   updateOrder(id: number, data: any): Promise<Order>;
   getBookings(): Promise<Booking[]>;
-  createBooking(booking: InsertBooking): Promise<Booking>;
+  createBooking(booking: any): Promise<Booking>;
+  updateBooking(id: number, data: any): Promise<Booking>;
+  deleteBooking(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -60,6 +62,7 @@ export class DatabaseStorage implements IStorage {
         paymentMethod: orderRequest.paymentMethod,
         paymentStatus: orderRequest.paymentStatus,
         orderStatus: orderRequest.orderStatus,
+        notes: orderRequest.notes,
       }).returning();
 
       for (const item of orderRequest.items) {
@@ -88,9 +91,18 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(bookings).orderBy(desc(bookings.createdAt));
   }
 
-  async createBooking(booking: InsertBooking): Promise<Booking> {
+  async createBooking(booking: any): Promise<Booking> {
     const [newBooking] = await db.insert(bookings).values(booking).returning();
     return newBooking;
+  }
+
+  async updateBooking(id: number, data: any): Promise<Booking> {
+    const [updatedBooking] = await db.update(bookings).set(data).where(eq(bookings.id, id)).returning();
+    return updatedBooking;
+  }
+
+  async deleteBooking(id: number): Promise<void> {
+    await db.delete(bookings).where(eq(bookings.id, id));
   }
 }
 

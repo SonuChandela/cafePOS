@@ -28,6 +28,7 @@ export const orders = pgTable("orders", {
   paymentMethod: text("payment_method").notNull(),
   paymentStatus: text("payment_status").default('pending').notNull(),
   orderStatus: text("order_status").default('preparing').notNull(),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -50,8 +51,11 @@ export const bookings = pgTable("bookings", {
   customerMobile: text("customer_mobile").notNull(),
   bookingDate: text("booking_date").notNull(),
   bookingTime: text("booking_time").notNull(),
+  closeTime: text("close_time"),
+  peopleCount: integer("people_count").default(1).notNull(),
   bookingCharge: integer("booking_charge").notNull(),
   advanceReceived: integer("advance_received").notNull(),
+  remainingPayment: integer("remaining_payment").default(0).notNull(),
   status: text("status").default('confirmed').notNull(), // 'confirmed', 'completed', 'cancelled'
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

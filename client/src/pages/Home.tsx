@@ -1,17 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MenuGrid } from "@/components/MenuGrid";
 import { CartPanel } from "@/components/CartPanel";
 import { Sidebar } from "@/components/Sidebar";
 import { CheckoutDialog } from "@/components/CheckoutDialog";
 import { ReceiptPreview } from "@/components/ReceiptPreview";
 import { useCart } from "@/hooks/use-cart";
-import { useOrder } from "@/hooks/use-orders";
+import { useOrder, useOrders } from "@/hooks/use-orders";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer, Share2, Menu as MenuIcon, ShoppingCart, X, Wifi, WifiOff } from "lucide-react";
+import { Printer, Share2, Menu as MenuIcon, ShoppingCart, X, Wifi, WifiOff, Bell, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useEffect } from "react";
+import { format } from "date-fns";
 
 export default function Home() {
   const { 
@@ -25,8 +25,17 @@ export default function Home() {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [lastOrderId, setLastOrderId] = useState<number | null>(null);
   const { data: order } = useOrder(lastOrderId);
+  const { data: orders } = useOrders();
   const { toast } = useToast();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [lastOrderStatus, setLastOrderStatus] = useState<Record<number, string>>({});
+  const [notifications, setNotifications] = useState<{id: number, message: string}[]>([]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -38,6 +47,33 @@ export default function Home() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Monitor order status changes
+  useEffect(() => {
+    if (orders) {
+      const newStatus: Record<number, string> = {};
+      let changed = false;
+      
+      orders.forEach(o => {
+        newStatus[o.id] = o.orderStatus;
+        if (lastOrderStatus[o.id] && lastOrderStatus[o.id] !== o.orderStatus) {
+          const msg = `Order #${o.id} is now ${o.orderStatus}`;
+          setNotifications(prev => [{id: Date.now() + o.id, message: msg}, ...prev]);
+          toast({
+            title: "Order Update",
+            description: msg,
+          });
+          changed = true;
+        } else if (!lastOrderStatus[o.id]) {
+          changed = true;
+        }
+      });
+
+      if (changed || Object.keys(lastOrderStatus).length !== orders.length) {
+        setLastOrderStatus(newStatus);
+      }
+    }
+  }, [orders, toast]);
 
   const handleCheckoutSuccess = (orderId: number) => {
     setLastOrderId(orderId);
@@ -68,16 +104,35 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#F8F9FB]">
+    <div className="flex h-screen w-full bg-[#F8F9FB] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       
-      <main className="flex-1 flex flex-col h-full relative overflow-hidden">
-        {/* Header with Status */}
-        <header className="p-4 md:p-6 flex items-center justify-between bg-white border-b border-gray-100">
+      <main className="flex-1 flex flex-col h-full relative">
+        {/* Header with Status and Time */}
+        <header className="p-4 md:p-6 flex items-center justify-between bg-white border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(true)}>
               <MenuIcon className="w-6 h-6" />
             </Button>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                <span className="text-sm font-bold text-[#1A1D1F]">{format(currentTime, "EEE, MMM dd yyyy")}</span>
+              </div>
+              <div className="text-xs font-medium text-gray-400 pl-6">{format(currentTime, "hh:mm:ss a")}</div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Bell className={cn("w-6 h-6 text-gray-400", notifications.length > 0 && "text-primary animate-bounce")} />
+              {notifications.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                  {notifications.length}
+                </span>
+              )}
+            </div>
+            <div className="h-8 w-[1px] bg-gray-100 hidden md:block" />
             <div className="flex items-center gap-2">
               {isOnline ? (
                 <div className="flex items-center gap-1.5 text-green-500 bg-green-50 px-3 py-1 rounded-full text-xs font-bold">
@@ -85,17 +140,14 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 text-red-500 bg-red-50 px-3 py-1 rounded-full text-xs font-bold">
-                  <WifiOff className="w-3 h-3" /> Offline Mode
+                  <WifiOff className="w-3 h-3" /> Offline
                 </div>
               )}
             </div>
           </div>
-          
-          <h1 className="text-xl font-extrabold text-[#1A1D1F] md:hidden">Makaryo</h1>
-          <div className="w-10 h-10 rounded-full bg-gray-100 md:block hidden"></div>
         </header>
 
-        <div className="flex-1 h-full overflow-hidden p-4 md:p-6 lg:p-8 flex flex-col">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           <MenuGrid onAdd={addItem} />
         </div>
 
