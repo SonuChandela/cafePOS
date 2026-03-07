@@ -147,44 +147,17 @@ export default function Home() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-          <MenuGrid onAdd={addItem} />
-        </main>
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Menu Grid - Main Content */}
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 min-w-0">
+            <MenuGrid onAdd={addItem} />
+          </main>
 
-        {/* Floating Cart Button (Right Bottom) */}
-        <button 
-          onClick={() => setCartOpen(!cartOpen)}
-          className="fixed bottom-6 right-6 w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl shadow-primary/40 z-40 transition-transform active:scale-90"
-        >
-          <div className="relative">
-            <ShoppingCart className="w-7 h-7" />
-            {items.length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-white text-primary text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
-                {items.length}
-              </span>
-            )}
-          </div>
-        </button>
-
-        {/* Slidable Cart Panel */}
-        <div className={cn(
-          "fixed inset-0 z-[60] transition-all duration-300 md:relative md:inset-auto md:z-50 md:h-full flex justify-end",
-          cartOpen ? "opacity-100 visible" : "opacity-0 invisible md:visible md:w-0"
-        )}>
-          <div 
-            className="absolute inset-0 bg-black/20 backdrop-blur-sm md:hidden"
-            onClick={() => setCartOpen(false)}
-          />
+          {/* Cart Panel - Desktop Visible, Mobile Overlay */}
           <div className={cn(
-            "h-full w-full max-w-[420px] bg-white transition-transform duration-300 relative",
-            cartOpen ? "translate-x-0" : "translate-x-full md:hidden"
+            "transition-all duration-300 flex flex-col bg-white border-l border-gray-100 hidden md:flex",
+            "w-full md:w-[420px] shrink-0"
           )}>
-            <button 
-              onClick={() => setCartOpen(false)}
-              className="absolute -left-12 top-8 w-12 h-12 bg-white rounded-l-2xl flex items-center justify-center text-gray-400 hover:text-primary md:hidden shadow-lg border-y border-l border-gray-100"
-            >
-              <X className="w-6 h-6" />
-            </button>
             <CartPanel 
               items={items}
               subtotal={subtotal}
@@ -201,8 +174,56 @@ export default function Home() {
               onCheckout={() => setCheckoutOpen(true)}
             />
           </div>
+
+          {/* Mobile Cart Overlay */}
+          {cartOpen && (
+            <div className="fixed inset-0 z-[60] md:hidden">
+              <div 
+                className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+                onClick={() => setCartOpen(false)}
+              />
+              <div className="absolute right-0 top-0 h-full w-full max-w-[420px] bg-white shadow-2xl flex flex-col">
+                <button 
+                  onClick={() => setCartOpen(false)}
+                  className="absolute -left-12 top-8 w-12 h-12 bg-white rounded-l-2xl flex items-center justify-center text-gray-400 hover:text-primary shadow-lg border-y border-l border-gray-100"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+                <CartPanel 
+                  items={items}
+                  subtotal={subtotal}
+                  taxRate={taxRate}
+                  setTaxRate={setTaxRate}
+                  taxAmount={taxAmount}
+                  discount={discount}
+                  setDiscount={setDiscount}
+                  total={total}
+                  onUpdateQuantity={updateQuantity}
+                  onToggleExtra={toggleExtra}
+                  onUpdateNotes={updateNotes}
+                  onRemove={removeItem}
+                  onCheckout={() => setCheckoutOpen(true)}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Floating Cart Button - Mobile Only */}
+      <button 
+        onClick={() => setCartOpen(!cartOpen)}
+        className="fixed bottom-6 right-6 w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl shadow-primary/40 z-40 transition-transform active:scale-90 md:hidden"
+      >
+        <div className="relative">
+          <ShoppingCart className="w-7 h-7" />
+          {items.length > 0 && (
+            <span className="absolute -top-2 -right-2 bg-white text-primary text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
+              {items.length}
+            </span>
+          )}
+        </div>
+      </button>
 
       <CheckoutDialog 
         open={checkoutOpen} 
