@@ -6,7 +6,6 @@ import { CheckoutDialog } from "@/components/CheckoutDialog";
 import { ReceiptPreview } from "@/components/ReceiptPreview";
 import { useCart } from "@/hooks/use-cart";
 import { useOrder, useOrders } from "@/hooks/use-orders";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, Share2, Menu as MenuIcon, ShoppingCart, X, Wifi, WifiOff, Bell, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +21,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
   const [lastOrderId, setLastOrderId] = useState<number | null>(null);
   const { data: order } = useOrder(lastOrderId);
   const { data: orders } = useOrders();
@@ -75,11 +74,16 @@ export default function Home() {
     }
   }, [orders, toast]);
 
+  const handleAddItem = (item: any, variation?: any) => {
+    addItem(item, variation);
+    setCartOpen(true);
+  };
+
   const handleCheckoutSuccess = (orderId: number) => {
     setLastOrderId(orderId);
     setCheckoutOpen(false);
     clearCart();
-    setReceiptOpen(true);
+    setShowReceipt(true);
     setCartOpen(false);
   };
 
@@ -150,7 +154,7 @@ export default function Home() {
         <div className="flex-1 flex overflow-hidden relative">
           {/* Menu Grid - Main Content */}
           <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 min-w-0">
-            <MenuGrid onAdd={addItem} />
+            <MenuGrid onAdd={handleAddItem} />
           </main>
 
           {/* Cart Panel - Desktop Visible, Mobile Overlay */}
@@ -175,38 +179,42 @@ export default function Home() {
             />
           </div>
 
-          {/* Mobile Cart Overlay */}
-          {cartOpen && (
-            <div className="fixed inset-0 z-[60] md:hidden">
-              <div 
-                className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+          {/* Mobile Cart Overlay - Sliding Drawer */}
+          <div className={cn(
+            "fixed inset-0 z-[60] md:hidden transition-opacity duration-300",
+            cartOpen ? "opacity-100 visible" : "opacity-0 invisible"
+          )}>
+            <div 
+              className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-all"
+              onClick={() => setCartOpen(false)}
+            />
+            <div className={cn(
+              "absolute right-0 top-0 h-full w-full max-w-[420px] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out",
+              cartOpen ? "translate-x-0" : "translate-x-full"
+            )}>
+              <button 
                 onClick={() => setCartOpen(false)}
+                className="absolute -left-12 top-8 w-12 h-12 bg-white rounded-l-2xl flex items-center justify-center text-gray-400 hover:text-primary shadow-lg border-y border-l border-gray-100 transition-all"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <CartPanel 
+                items={items}
+                subtotal={subtotal}
+                taxRate={taxRate}
+                setTaxRate={setTaxRate}
+                taxAmount={taxAmount}
+                discount={discount}
+                setDiscount={setDiscount}
+                total={total}
+                onUpdateQuantity={updateQuantity}
+                onToggleExtra={toggleExtra}
+                onUpdateNotes={updateNotes}
+                onRemove={removeItem}
+                onCheckout={() => setCheckoutOpen(true)}
               />
-              <div className="absolute right-0 top-0 h-full w-full max-w-[420px] bg-white shadow-2xl flex flex-col">
-                <button 
-                  onClick={() => setCartOpen(false)}
-                  className="absolute -left-12 top-8 w-12 h-12 bg-white rounded-l-2xl flex items-center justify-center text-gray-400 hover:text-primary shadow-lg border-y border-l border-gray-100"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-                <CartPanel 
-                  items={items}
-                  subtotal={subtotal}
-                  taxRate={taxRate}
-                  setTaxRate={setTaxRate}
-                  taxAmount={taxAmount}
-                  discount={discount}
-                  setDiscount={setDiscount}
-                  total={total}
-                  onUpdateQuantity={updateQuantity}
-                  onToggleExtra={toggleExtra}
-                  onUpdateNotes={updateNotes}
-                  onRemove={removeItem}
-                  onCheckout={() => setCheckoutOpen(true)}
-                />
-              </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
@@ -238,22 +246,38 @@ export default function Home() {
         onSuccess={handleCheckoutSuccess}
       />
 
-      <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-[420px] p-0 overflow-hidden bg-transparent border-none shadow-none max-h-[90vh] overflow-y-auto">
-          <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl">
-            {order && <ReceiptPreview order={order} />}
+      {/* Receipt Overlay - Shows on Home Page */}
+      {showReceipt && order && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setShowReceipt(false)}
+          />
+          
+          {/* Receipt Content */}
+          <div className="relative bg-white rounded-[2.5rem] overflow-hidden shadow-2xl max-w-[420px] w-[95vw] max-h-[90vh] overflow-y-auto">
+            <ReceiptPreview order={order} />
             
-            <div className="bg-[#F8F9FB] p-8 flex gap-4 no-print">
+            <div className="bg-[#F8F9FB] p-8 flex gap-4 no-print border-t border-gray-100">
               <Button onClick={handlePrint} className="flex-1 h-14 rounded-2xl font-bold gap-2 shadow-lg shadow-primary/20">
                 <Printer className="w-5 h-5" /> Print
               </Button>
               <Button onClick={handleShare} variant="outline" className="flex-1 h-14 rounded-2xl font-bold gap-2 border-gray-200 hover:bg-white hover:border-primary hover:text-primary transition-all">
                 <Share2 className="w-5 h-5" /> WhatsApp
               </Button>
+              <Button 
+                onClick={() => setShowReceipt(false)}
+                variant="outline" 
+                size="icon"
+                className="h-14 w-14 rounded-2xl border-gray-200 hover:bg-white hover:border-red-500 hover:text-red-500 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
       
       {order && (
         <div className="print-only">
