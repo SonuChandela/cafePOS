@@ -49,8 +49,8 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
   };
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
-      <div className="flex flex-col space-y-4">
+    <div className="flex flex-col h-full space-y-6">
+      <div className="flex flex-col space-y-4 flex-shrink-0">
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
           <div className="hidden md:block">
             <h1 className="text-xl font-extrabold text-[#1A1D1F]">Welcome, Guest</h1>
@@ -80,8 +80,9 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 overflow-y-auto pb-32 pr-2 -mr-2 no-scrollbar">
-        {filteredItems?.map((item) => (
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 pr-2 -mr-2 no-scrollbar pb-20">
+          {filteredItems?.map((item) => (
           <div 
             key={item.id}
             onClick={() => handleAddClick(item)}
@@ -119,12 +120,13 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
           </div>
         ))}
 
-        {filteredItems?.length === 0 && (
-          <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
-            <Info className="w-16 h-16 mb-4 opacity-10" />
-            <p className="text-lg font-medium">No items found</p>
-          </div>
-        )}
+          {filteredItems?.length === 0 && (
+            <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
+              <Info className="w-16 h-16 mb-4 opacity-10" />
+              <p className="text-lg font-medium">No items found</p>
+            </div>
+          )}
+        </div>
       </div>
 
       <Dialog open={!!selectedItemForVariation} onOpenChange={(open) => !open && setSelectedItemForVariation(null)}>

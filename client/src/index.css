@@ -116,15 +116,38 @@
 }
 
 @media print {
-  @page { margin: 0; }
-  body { visibility: hidden; }
+  @page { 
+    margin: 0; 
+    size: A4;
+  }
+  * {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: white !important;
+  }
+  body > * {
+    display: none !important;
+  }
   .print-only {
     display: block !important;
-    visibility: visible;
-    position: absolute;
-    left: 0;
-    top: 0;
+    visibility: visible !important;
     width: 100%;
+    height: auto;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    page-break-after: always;
   }
-  .no-print { display: none !important; }
+  .print-only * {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print { 
+    display: none !important;
+    visibility: hidden !important;
+  }
 }
