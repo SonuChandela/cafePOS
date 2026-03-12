@@ -163,6 +163,13 @@ export default function Orders() {
         </main>
       </div>
 
+      {/* Hidden print target for Orders page */}
+      {selectedOrder && viewMode === "view" && (
+        <div className="print-only">
+          <ReceiptPreview order={selectedOrder} />
+        </div>
+      )}
+
       <Dialog open={!!selectedOrder} onOpenChange={() => { setSelectedOrder(null); setViewMode(null); }}>
         <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none rounded-[2.5rem] bg-white max-h-[90vh] overflow-y-auto shadow-2xl">
           {selectedOrder && (

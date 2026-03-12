@@ -221,7 +221,7 @@ export default function Home() {
       {/* Floating Cart Button - Mobile Only */}
       <button 
         onClick={() => setCartOpen(!cartOpen)}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl shadow-primary/40 z-40 transition-transform active:scale-90"
+        className="fixed bottom-6 right-6 w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl shadow-primary/40 z-40 transition-transform active:scale-90 md:hidden"
         data-testid="button-cart"
       >
         <div className="relative">
