@@ -23,7 +23,10 @@ export async function setupVite(server: Server, app: Express) {
       error: (msg, options) => {
         viteLogger.error(msg, options);
         // Only exit on truly fatal errors, not transient HMR/connection issues
-        if (msg.includes("Failed to load") || msg.includes("Cannot find module")) {
+        if (
+          msg.includes("Failed to load") ||
+          msg.includes("Cannot find module")
+        ) {
           process.exit(1);
         }
       },
@@ -39,11 +42,14 @@ export async function setupVite(server: Server, app: Express) {
 
     try {
       const clientTemplate = path.resolve(
-        import.meta.dirname,
+        path.dirname(new URL(import.meta.url).pathname),
         "..",
         "client",
         "index.html",
       );
+
+      console.log("hello");
+      console.log(clientTemplate);
 
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");

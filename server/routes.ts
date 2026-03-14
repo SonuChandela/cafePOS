@@ -1,8 +1,19 @@
 import { storage } from "./storage";
-import { insertMenuItemSchema, createOrderSchema, insertBookingSchema } from "@shared/schema";
+import {
+  insertMenuItemSchema,
+  createOrderSchema,
+  insertBookingSchema,
+} from "@shared/schema";
 import { type Express } from "express";
 
-export async function registerRoutes(httpServer: any, app: Express): Promise<void> {
+export async function registerRoutes(
+  httpServer: any,
+  app: Express,
+): Promise<void> {
+  app.get("/", (_req, res) => {
+    res.send("Server is running");
+  });
+
   app.get("/api/menu", async (_req, res) => {
     try {
       const items = await storage.getMenuItems();
@@ -45,7 +56,10 @@ export async function registerRoutes(httpServer: any, app: Express): Promise<voi
 
   app.patch("/api/orders/:id", async (req, res) => {
     try {
-      const order = await storage.updateOrder(parseInt(req.params.id), req.body);
+      const order = await storage.updateOrder(
+        parseInt(req.params.id),
+        req.body,
+      );
       res.json(order);
     } catch (error) {
       res.status(500).json({ message: "Failed to update order" });
@@ -72,7 +86,10 @@ export async function registerRoutes(httpServer: any, app: Express): Promise<voi
 
   app.patch("/api/bookings/:id", async (req, res) => {
     try {
-      const booking = await storage.updateBooking(parseInt(req.params.id), req.body);
+      const booking = await storage.updateBooking(
+        parseInt(req.params.id),
+        req.body,
+      );
       res.json(booking);
     } catch (error) {
       res.status(500).json({ message: "Failed to update booking" });
