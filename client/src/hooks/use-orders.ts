@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl, type CreateOrderRequest } from "@shared/routes";
+import { api, buildUrl } from "@shared/routes";
+import { type CreateOrderRequest, type OrderWithItems } from "@shared/schema";
 
 export function useOrders() {
   return useQuery({

@@ -27,7 +27,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
-    const [newItem] = await db.insert(menuItems).values(item).returning();
+    const [newItem] = await db.insert(menuItems).values(item as any).returning();
     return newItem;
   }
 

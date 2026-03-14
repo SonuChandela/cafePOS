@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertMenuItemSchema, createOrderSchema, menuItems, orders } from './schema';
+import { insertMenuItemSchema, createOrderSchema, menuItems, orders, type OrderWithItems } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -38,7 +38,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/orders',
       responses: {
-        200: z.array(z.custom<typeof orders.$inferSelect>()),
+        200: z.array(z.custom<OrderWithItems>()),
       },
     },
     create: {

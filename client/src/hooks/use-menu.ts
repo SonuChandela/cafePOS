@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type InsertMenuItem } from "@shared/routes";
+import { api } from "@shared/routes";
+import { type InsertMenuItem } from "@shared/schema";
 
 export function useMenu() {
   return useQuery({
