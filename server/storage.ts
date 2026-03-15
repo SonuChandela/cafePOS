@@ -1,4 +1,4 @@
-import { menuItems, orders, orderItems, bookings, type MenuItem, type InsertMenuItem, type Order, type CreateOrderRequest, type OrderWithItems, type Booking, type InsertBooking } from "@shared/schema";
+import { menuItems, orders, orderItems, bookings, inventoryItems, type MenuItem, type InsertMenuItem, type Order, type CreateOrderRequest, type OrderWithItems, type Booking, type InsertBooking, type InventoryItem } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
@@ -15,6 +15,9 @@ export interface IStorage {
   createBooking(booking: any): Promise<Booking>;
   updateBooking(id: number, data: any): Promise<Booking>;
   deleteBooking(id: number): Promise<void>;
+  getInventoryItems(): Promise<InventoryItem[]>;
+  updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem>;
+  createInventoryItem(data: any): Promise<InventoryItem>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -138,9 +141,53 @@ export class DatabaseStorage implements IStorage {
   async deleteBooking(id: number): Promise<void> {
     await db.delete(bookings).where(eq(bookings.id, id));
   }
+
+  async getInventoryItems(): Promise<InventoryItem[]> {
+    return await db.select().from(inventoryItems).orderBy(inventoryItems.category, inventoryItems.name);
+  }
+
+  async updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem> {
+    const [item] = await db.update(inventoryItems)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(inventoryItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async createInventoryItem(data: any): Promise<InventoryItem> {
+    const [item] = await db.insert(inventoryItems).values(data).returning();
+    return item;
+  }
 }
 
 export const storage = new DatabaseStorage();
+
+async function seedInventory() {
+  const existing = await storage.getInventoryItems();
+  if (existing.length > 0) return;
+
+  const items = [
+    { name: "Tomato Sauce", category: "Pizzas", quantity: 18, unit: "kg", minQuantity: 5, usedInItems: "Margherita Pizza, Pepperoni Pizza, Veggie Supreme Pizza, BBQ Chicken Pizza" },
+    { name: "Mozzarella Cheese", category: "Pizzas", quantity: 3, unit: "kg", minQuantity: 6, usedInItems: "Margherita Pizza, Pepperoni Pizza, Veggie Supreme Pizza, BBQ Chicken Pizza" },
+    { name: "Pizza Dough", category: "Pizzas", quantity: 24, unit: "pcs", minQuantity: 10, usedInItems: "Margherita Pizza, Pepperoni Pizza, Veggie Supreme Pizza, BBQ Chicken Pizza" },
+    { name: "Pepperoni Slices", category: "Pizzas", quantity: 2, unit: "kg", minQuantity: 3, usedInItems: "Pepperoni Pizza" },
+    { name: "Grilled Chicken", category: "Pizzas", quantity: 5, unit: "kg", minQuantity: 4, usedInItems: "BBQ Chicken Pizza" },
+    { name: "BBQ Sauce", category: "Pizzas", quantity: 8, unit: "liters", minQuantity: 3, usedInItems: "BBQ Chicken Pizza" },
+    { name: "Mixed Vegetables", category: "Pizzas", quantity: 4, unit: "kg", minQuantity: 5, usedInItems: "Veggie Supreme Pizza" },
+    { name: "Olive Oil", category: "Pizzas", quantity: 6, unit: "liters", minQuantity: 2, usedInItems: "Margherita Pizza" },
+    { name: "Burger Buns", category: "Burgers", quantity: 8, unit: "pcs", minQuantity: 12, usedInItems: "Classic Burger" },
+    { name: "Beef Patty", category: "Burgers", quantity: 4, unit: "pcs", minQuantity: 10, usedInItems: "Classic Burger" },
+    { name: "Lettuce", category: "Burgers", quantity: 6, unit: "pcs", minQuantity: 10, usedInItems: "Classic Burger" },
+    { name: "Cheese Slices", category: "Burgers", quantity: 20, unit: "pcs", minQuantity: 15, usedInItems: "Classic Burger" },
+    { name: "Coffee Beans", category: "Beverages", quantity: 8, unit: "kg", minQuantity: 5, usedInItems: "Cappuccino" },
+    { name: "Milk", category: "Beverages", quantity: 4, unit: "liters", minQuantity: 10, usedInItems: "Cappuccino" },
+    { name: "Sugar", category: "Beverages", quantity: 12, unit: "kg", minQuantity: 5, usedInItems: "Cappuccino" },
+  ];
+
+  for (const item of items) {
+    await storage.createInventoryItem(item);
+  }
+}
 
 async function seed() {
   const existing = await storage.getMenuItems();
@@ -231,3 +278,4 @@ async function seed() {
 }
 
 seed().catch(console.error);
+seedInventory().catch(console.error);

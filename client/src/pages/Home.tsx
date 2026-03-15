@@ -100,8 +100,14 @@ export default function Home() {
     addNotification(`New order #${orderId} placed successfully`);
   };
 
+  const dismissReceipt = () => {
+    setShowReceipt(false);
+    setLastOrderId(null);
+  };
+
   const handlePrint = () => {
     window.print();
+    dismissReceipt();
   };
 
   const handleShare = () => {
@@ -118,6 +124,7 @@ export default function Home() {
       `Thank you for your order!`
     );
     window.open(`https://wa.me/${order.customerPhone}?text=${message}`, '_blank');
+    dismissReceipt();
   };
 
   return (
@@ -140,7 +147,27 @@ export default function Home() {
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Cart Button - fixed in header */}
+            <button
+              onClick={() => setCartOpen(!cartOpen)}
+              className={cn(
+                "relative flex items-center gap-2 h-9 px-3 rounded-xl font-bold text-sm transition-all",
+                cartOpen
+                  ? "bg-primary text-white"
+                  : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
+              )}
+              data-testid="button-cart"
+            >
+              <ShoppingCart className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline text-xs font-black">Cart</span>
+              {items.length > 0 && (
+                <span className="bg-white text-primary text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border border-primary/20">
+                  {items.length > 9 ? '9+' : items.length}
+                </span>
+              )}
+            </button>
+
             {/* Notification Bell */}
             <div className="relative" ref={notifRef}>
               <button
@@ -270,26 +297,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Floating Cart Button - ALL screen sizes */}
-      <button 
-        onClick={() => setCartOpen(!cartOpen)}
-        className="fixed bottom-5 right-5 w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl shadow-primary/40 z-40 transition-all active:scale-90 hover:scale-105"
-        data-testid="button-cart"
-      >
-        <div className="relative">
-          {cartOpen ? (
-            <ChevronRight className="w-6 h-6" />
-          ) : (
-            <ShoppingCart className="w-6 h-6" />
-          )}
-          {items.length > 0 && (
-            <span className="absolute -top-2 -right-2.5 bg-white text-primary text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-sm border border-primary/10">
-              {items.length > 9 ? '9+' : items.length}
-            </span>
-          )}
-        </div>
-      </button>
-
       <CheckoutDialog 
         open={checkoutOpen} 
         onOpenChange={setCheckoutOpen}
@@ -307,7 +314,7 @@ export default function Home() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div 
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-            onClick={() => setShowReceipt(false)}
+            onClick={dismissReceipt}
           />
           
           <div className="relative bg-white rounded-[2rem] overflow-hidden shadow-2xl w-full max-w-[400px] max-h-[90vh] overflow-y-auto">
@@ -321,7 +328,7 @@ export default function Home() {
                 <Share2 className="w-4 h-4" /> WhatsApp
               </Button>
               <Button 
-                onClick={() => setShowReceipt(false)}
+                onClick={dismissReceipt}
                 variant="outline" 
                 size="icon"
                 className="h-12 w-12 rounded-2xl border-gray-200 hover:border-red-500 hover:text-red-500"

@@ -3,6 +3,18 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
+// === INVENTORY TABLE ===
+export const inventoryItems = pgTable("inventory_items", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  quantity: integer("quantity").notNull().default(0),
+  unit: text("unit").notNull().default("pcs"),
+  minQuantity: integer("min_quantity").notNull().default(10),
+  usedInItems: text("used_in_items"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // === TABLE DEFINITIONS ===
 export const menuItems = pgTable("menu_items", {
   id: serial("id").primaryKey(),
@@ -100,3 +112,7 @@ export const createOrderSchema = insertOrderSchema.extend({
 
 export type CreateOrderRequest = z.infer<typeof createOrderSchema>;
 export type OrderWithItems = Order & { items: OrderItem[] };
+
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({ id: true, updatedAt: true });
+export type InventoryItem = typeof inventoryItems.$inferSelect;
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;

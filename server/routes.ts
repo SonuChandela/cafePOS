@@ -112,4 +112,31 @@ export async function registerRoutes(
       res.status(500).json({ message: "Failed to delete booking" });
     }
   });
+
+  app.get("/api/inventory", async (_req, res) => {
+    try {
+      const items = await storage.getInventoryItems();
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch inventory" });
+    }
+  });
+
+  app.patch("/api/inventory/:id", async (req, res) => {
+    try {
+      const item = await storage.updateInventoryItem(parseInt(req.params.id), req.body);
+      res.json(item);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update inventory item" });
+    }
+  });
+
+  app.post("/api/inventory", async (req, res) => {
+    try {
+      const item = await storage.createInventoryItem(req.body);
+      res.status(201).json(item);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create inventory item" });
+    }
+  });
 }

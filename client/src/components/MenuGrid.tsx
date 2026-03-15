@@ -81,7 +81,7 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 pr-2 -mr-2 no-scrollbar pb-20">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 pr-2 no-scrollbar pb-20">
           {filteredItems?.map((item) => (
           <div 
             key={item.id}

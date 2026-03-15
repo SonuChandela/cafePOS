@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutGrid, ClipboardList, Settings, Store, LogOut, ChevronLeft, ChevronRight, CalendarCheck } from "lucide-react";
+import { LayoutGrid, ClipboardList, Settings, Store, LogOut, ChevronLeft, ChevronRight, CalendarCheck, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
     { icon: LayoutGrid, label: "Menu", href: "/" },
     { icon: CalendarCheck, label: "Booking", href: "/bookings" },
     { icon: ClipboardList, label: "History", href: "/orders" },
+    { icon: Package, label: "Inventory", href: "/inventory" },
     { icon: Settings, label: "Settings", href: "/settings" },
   ];
 
@@ -28,8 +29,10 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
         />
       )}
 
+      {/* Desktop Sidebar */}
       <aside className={cn(
         "fixed md:sticky top-0 left-0 z-[90] h-screen bg-white border-r border-gray-100 transition-all duration-300 flex flex-col py-8",
+        "hidden md:flex",
         isOpen ? "w-64 lg:w-72 translate-x-0 shadow-2xl" : "w-0 -translate-x-full md:w-20 md:translate-x-0"
       )}>
         <div className="flex flex-col items-center mb-12 relative px-6">
@@ -41,7 +44,6 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           </div>
           {isOpen && <h2 className="text-xl font-black text-[#1A1D1F] tracking-tighter">Makaryo POS</h2>}
 
-          {/* Toggle Button */}
           <Button
             variant="ghost"
             size="icon"
@@ -93,6 +95,36 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           </button>
         </div>
       </aside>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white border-t border-gray-100 flex items-center justify-around safe-area-bottom">
+        {navItems.map((item) => {
+          const isActive = location === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex flex-col items-center gap-0.5 px-2 py-2.5 flex-1 transition-all",
+                isActive ? "text-primary" : "text-gray-400"
+              )}
+            >
+              <div className={cn(
+                "p-1.5 rounded-xl transition-all",
+                isActive && "bg-primary/10"
+              )}>
+                <item.icon className={cn("w-5 h-5", isActive ? "text-primary" : "text-gray-400")} />
+              </div>
+              <span className={cn(
+                "text-[10px] font-bold",
+                isActive ? "text-primary" : "text-gray-400"
+              )}>
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
     </>
   );
 }
