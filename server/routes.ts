@@ -10,10 +10,6 @@ export async function registerRoutes(
   httpServer: any,
   app: Express,
 ): Promise<void> {
-  app.get("/", (_req, res) => {
-    res.send("Server is running");
-  });
-
   app.get("/api/menu", async (_req, res) => {
     try {
       const items = await storage.getMenuItems();
