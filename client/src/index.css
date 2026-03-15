@@ -94,16 +94,16 @@
 @layer components {
   .pos-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 1.25rem;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1rem;
   }
 
   .item-card {
-    @apply bg-white rounded-2xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border-0 transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] cursor-pointer;
+    @apply bg-white rounded-2xl p-3 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border-0 transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] cursor-pointer;
   }
 
   .category-pill {
-    @apply px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap;
+    @apply px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap;
   }
 
   .category-pill-active {
@@ -115,16 +115,26 @@
   }
 }
 
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
 @media print {
   @page { 
-    margin: 10mm; 
-    size: A4;
+    margin: 8mm; 
+    size: A5;
   }
   body * {
     visibility: hidden;
   }
   .print-only {
-    visibility: visible;
+    visibility: visible !important;
     position: fixed;
     top: 0;
     left: 0;
@@ -134,10 +144,16 @@
     z-index: 99999;
   }
   .print-only * {
-    visibility: visible;
+    visibility: visible !important;
   }
   .no-print { 
     display: none !important;
     visibility: hidden !important;
+  }
+  /* Hide dialogs and overlays during print */
+  [role="dialog"],
+  [data-radix-portal],
+  .fixed:not(.print-only) {
+    display: none !important;
   }
 }

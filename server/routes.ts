@@ -37,6 +37,16 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/orders/:id", async (req, res) => {
+    try {
+      const order = await storage.getOrder(parseInt(req.params.id));
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      res.json(order);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch order" });
+    }
+  });
+
   app.post("/api/orders", async (req, res) => {
     const parsed = createOrderSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -52,9 +62,11 @@ export async function registerRoutes(
 
   app.patch("/api/orders/:id", async (req, res) => {
     try {
-      const order = await storage.updateOrder(
+      const { items, ...orderData } = req.body;
+      const order = await storage.updateOrderWithItems(
         parseInt(req.params.id),
-        req.body,
+        orderData,
+        items,
       );
       res.json(order);
     } catch (error) {

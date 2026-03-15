@@ -10,6 +10,7 @@ export interface IStorage {
   getOrder(id: number): Promise<OrderWithItems | undefined>;
   createOrder(order: CreateOrderRequest): Promise<Order>;
   updateOrder(id: number, data: any): Promise<Order>;
+  updateOrderWithItems(id: number, data: any, items?: any[]): Promise<Order>;
   getBookings(): Promise<Booking[]>;
   createBooking(booking: any): Promise<Booking>;
   updateBooking(id: number, data: any): Promise<Booking>;
@@ -85,6 +86,39 @@ export class DatabaseStorage implements IStorage {
   async updateOrder(id: number, data: any): Promise<Order> {
     const [updatedOrder] = await db.update(orders).set(data).where(eq(orders.id, id)).returning();
     return updatedOrder;
+  }
+
+  async updateOrderWithItems(id: number, data: any, items?: any[]): Promise<Order> {
+    return await db.transaction(async (tx) => {
+      const updateData: any = {};
+      if (data.orderStatus !== undefined) updateData.orderStatus = data.orderStatus;
+      if (data.paymentStatus !== undefined) updateData.paymentStatus = data.paymentStatus;
+      if (data.notes !== undefined) updateData.notes = data.notes;
+      if (data.totalAmount !== undefined) updateData.totalAmount = data.totalAmount;
+      if (data.subtotal !== undefined) updateData.subtotal = data.subtotal;
+      if (data.taxAmount !== undefined) updateData.taxAmount = data.taxAmount;
+      if (data.discountAmount !== undefined) updateData.discountAmount = data.discountAmount;
+
+      const [updatedOrder] = await tx.update(orders).set(updateData).where(eq(orders.id, id)).returning();
+
+      if (items !== undefined) {
+        await tx.delete(orderItems).where(eq(orderItems.orderId, id));
+        for (const item of items) {
+          await tx.insert(orderItems).values({
+            orderId: id,
+            menuItemId: item.menuItemId,
+            name: item.name,
+            quantity: item.quantity,
+            priceAtTime: item.priceAtTime,
+            variationName: item.variationName || null,
+            extras: item.extras || "",
+            extrasAmount: item.extrasAmount || 0,
+          });
+        }
+      }
+
+      return updatedOrder;
+    });
   }
 
   async getBookings(): Promise<Booking[]> {
