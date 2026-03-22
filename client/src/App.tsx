@@ -8,6 +8,7 @@ import Home from "@/pages/Home";
 import Orders from "@/pages/Orders";
 import Settings from "@/pages/Settings";
 import Bookings from "@/pages/Bookings";
+import Inventory from "@/pages/Inventory";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/orders" component={Orders} />
       <Route path="/bookings" component={Bookings} />
       <Route path="/settings" component={Settings} />
+      <Route path="/inventory" component={Inventory} />
       <Route component={NotFound} />
     </Switch>
   );
