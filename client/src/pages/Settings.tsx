@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -6,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 
 export default function Settings() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
   return (
-    <div className="flex h-screen w-full bg-background">
-      <Sidebar />
+    <div className="flex h-screen w-full bg-[#F8F9FB] overflow-hidden">
+      <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       <div className="flex-1 flex flex-col h-screen overflow-auto">
         <header className="p-8 border-b border-border">
           <h1 className="text-3xl font-display font-bold">Settings</h1>

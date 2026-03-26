@@ -1,13 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type InsertMenuItem } from "@shared/routes";
+import { api } from "@shared/routes";
+import { type InsertMenuItem } from "@shared/schema";
 
 export function useMenu() {
   return useQuery({
     queryKey: [api.menu.list.path],
     queryFn: async () => {
       const res = await fetch(api.menu.list.path);
+      console.log(res);
       if (!res.ok) throw new Error("Failed to fetch menu items");
-      return api.menu.list.responses[200].parse(await res.json());
+      const data = api.menu.list.responses[200].parse(await res.json());
+      return data;
     },
   });
 }
@@ -21,7 +24,7 @@ export function useCreateMenuItem() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      
+
       if (!res.ok) {
         if (res.status === 400) {
           const error = api.menu.create.responses[400].parse(await res.json());

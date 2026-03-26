@@ -21,7 +21,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
     <>
       {/* Mobile Backdrop */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 md:hidden"
           onClick={onToggle}
         />
@@ -37,7 +37,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
               <Store className="w-6 h-6 text-white" />
             </div>
           ) : (
-             <Store className="w-6 h-6 text-primary" />
+            <Store className="w-6 h-6 text-primary" />
           )}
 
           {/* Toggle Button */}
@@ -61,8 +61,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
               <Link key={item.href} href={item.href} className="group relative flex flex-col items-center gap-1">
                 <div className={cn(
                   "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300",
-                  isActive 
-                    ? 'bg-primary text-white shadow-lg shadow-primary/30' 
+                  isActive
+                    ? 'bg-primary text-white shadow-lg shadow-primary/30'
                     : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
                 )}>
                   <item.icon className="w-6 h-6" />
@@ -82,7 +82,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
             );
           })}
         </nav>
-        
+
         <div className={cn(
           "flex flex-col items-center",
           !isOpen && "hidden md:flex"

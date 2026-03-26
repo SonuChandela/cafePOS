@@ -24,8 +24,8 @@ interface CheckoutDialogProps {
   onSuccess: (orderId: number) => void;
 }
 
-export function CheckoutDialog({ 
-  open, onOpenChange, items, subtotal, taxRate, taxAmount, discount, total, onSuccess 
+export function CheckoutDialog({
+  open, onOpenChange, items, subtotal, taxRate, taxAmount, discount, total, onSuccess
 }: CheckoutDialogProps) {
   const { toast } = useToast();
   const form = useForm<CreateOrderRequest>({
@@ -47,8 +47,9 @@ export function CheckoutDialog({
         quantity: i.quantity,
         priceAtTime: i.price,
         variationName: i.variationName,
-        extras: i.selectedExtras.map(e => e.name).join(", "),
-        extrasAmount: i.selectedExtras.reduce((s, e) => s + e.price, 0),
+        modifiers: i.selectedExtras, // Correct JSON array payload instead of tracking string
+        modifiersAmount: i.selectedExtras.reduce((s, e) => s + e.price, 0),
+        totalPrice: ((i.price) + i.selectedExtras.reduce((s, e) => s + e.price, 0)) * i.quantity
       })),
     },
   });
@@ -86,8 +87,9 @@ export function CheckoutDialog({
         quantity: i.quantity,
         priceAtTime: i.price,
         variationName: i.variationName,
-        extras: i.selectedExtras.map(e => e.name).join(", "),
-        extrasAmount: i.selectedExtras.reduce((s, e) => s + e.price, 0),
+        modifiers: i.selectedExtras, // Correct format
+        modifiersAmount: i.selectedExtras.reduce((s, e) => s + e.price, 0),
+        totalPrice: ((i.price) + i.selectedExtras.reduce((s, e) => s + e.price, 0)) * i.quantity
       })),
     });
   }
@@ -99,7 +101,7 @@ export function CheckoutDialog({
           <DialogTitle className="text-2xl font-extrabold text-[#1A1D1F]">Checkout Information</DialogTitle>
           <p className="text-gray-400 font-medium mt-1">Complete the customer details to place order</p>
         </div>
-        
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="p-8 space-y-6">
             <div className="grid grid-cols-1 gap-6">
@@ -112,9 +114,9 @@ export function CheckoutDialog({
                     <FormControl>
                       <div className="relative">
                         <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <Input 
-                          placeholder="Enter name" 
-                          {...field} 
+                        <Input
+                          placeholder="Enter name"
+                          {...field}
                           value={field.value || ""}
                           className="pl-12 h-14 bg-white border-none rounded-2xl shadow-sm focus-visible:ring-primary/20"
                         />
@@ -134,9 +136,9 @@ export function CheckoutDialog({
                     <FormControl>
                       <div className="relative">
                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <Input 
-                          placeholder="08123456789" 
-                          {...field} 
+                        <Input
+                          placeholder="08123456789"
+                          {...field}
                           value={field.value || ""}
                           className="pl-12 h-14 bg-white border-none rounded-2xl shadow-sm focus-visible:ring-primary/20"
                         />
@@ -215,8 +217,8 @@ export function CheckoutDialog({
                   <span className="text-2xl font-extrabold text-primary">${(total / 100).toFixed(2)}</span>
                 </div>
               </div>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full h-14 text-lg font-bold rounded-2xl shadow-lg shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
                 disabled={mutation.isPending}
               >

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMenu } from "@/hooks/use-menu";
-import { MenuItem } from "@shared/schema";
+import { MenuItemWithVariations } from "@shared/schema";
 import { Plus, Search, ChevronDown, Utensils } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,26 +8,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 
 interface MenuGridProps {
-  onAdd: (item: MenuItem, variation?: { name: string; price: number }) => void;
+  onAdd: (item: MenuItemWithVariations, variation?: { name: string; price: number }) => void;
 }
 
 export function MenuGrid({ onAdd }: MenuGridProps) {
   const { data: menuItems, isLoading } = useMenu();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("All");
-  const [selectedItemForVariation, setSelectedItemForVariation] = useState<MenuItem | null>(null);
-
-  const categories = ["All", ...Array.from(new Set(menuItems?.map(i => i.category) || []))];
-
+  const [selectedItemForVariation, setSelectedItemForVariation] = useState<MenuItemWithVariations | null>(null);
+  const categories = ["All", ...Array.from(new Set(menuItems?.map(i => i.category?.name).filter(Boolean) || []))] as string[];
+  console.log(menuItems);
   const filteredItems = menuItems?.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = category === "All" || item.category === category;
+    const matchesCategory = category === "All" || item.category?.name === category;
     return matchesSearch && matchesCategory;
   });
 
   const getCategoryCount = (cat: string) => {
     if (cat === "All") return menuItems?.length || 0;
-    return menuItems?.filter(i => i.category === cat).length || 0;
+    return menuItems?.filter(i => i.category?.name === cat).length || 0;
   };
 
   if (isLoading) {
@@ -40,13 +39,16 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
     );
   }
 
-  const handleAddClick = (item: MenuItem) => {
-    if (item.variations && item.variations.length > 0) {
+  const handleAddClick = (item: MenuItemWithVariations) => {
+    // Check if there are any variation options in any group
+    const hasVariations = (item.menuItemVariations?.length || 0) > 0;
+
+    if (hasVariations) {
       setSelectedItemForVariation(item);
     } else {
       onAdd(item);
-    }
-  };
+    };
+  }
 
   return (
     <div className="space-y-6 h-full flex flex-col">
@@ -58,8 +60,8 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
           </div>
           <div className="relative w-full lg:w-[450px]">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-6 h-6" />
-            <Input 
-              placeholder="Search product..." 
+            <Input
+              placeholder="Search product..."
               className="pl-14 h-16 bg-white border border-gray-100 rounded-2xl shadow-sm focus-visible:ring-primary/20 text-xl font-medium"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -82,7 +84,7 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 overflow-y-auto pb-24 pr-2 -mr-2 no-scrollbar">
         {filteredItems?.map((item) => (
-          <div 
+          <div
             key={item.id}
             onClick={() => handleAddClick(item)}
             className="item-card group"
@@ -95,14 +97,14 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
                   <Utensils className="w-16 h-16" />
                 </div>
               )}
-              {item.variations && item.variations.length > 0 && (
+              {(item.menuItemVariations?.length || 0) > 0 && (
                 <div className="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-bold text-primary flex items-center gap-1">
                   Variations <ChevronDown className="w-3 h-3" />
                 </div>
               )}
               <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            
+
             <div className="space-y-2">
               <h3 className="font-bold text-[#1A1D1F] text-lg leading-tight group-hover:text-primary transition-colors">{item.name}</h3>
               <div className="flex justify-between items-center">
@@ -132,9 +134,13 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
             <DialogTitle className="text-xl font-extrabold text-[#1A1D1F]">Select Variation</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
-            {selectedItemForVariation?.variations?.map((v, i) => (
+            {selectedItemForVariation?.menuItemVariations?.map((vg, i) => ({
+              id: vg.specificOption.id,
+              name: `${vg.specificOption.parentGroup.name}: ${vg.specificOption.name}`,
+              price: vg.price
+            })).map((v, i) => (
               <Button
-                key={i}
+                key={v.id || i}
                 variant="outline"
                 className="w-full h-16 rounded-2xl flex justify-between px-6 border-gray-100 hover:border-primary hover:text-primary transition-all font-bold"
                 onClick={() => {

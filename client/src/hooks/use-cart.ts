@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { type MenuItem } from '@shared/schema';
+import { type MenuItemWithVariations } from '@shared/schema';
 
 export interface CartExtra {
   name: string;
@@ -21,7 +21,7 @@ export function useCart() {
   const [discount, setDiscount] = useState(0); // in cents
   const [taxRate, setTaxRate] = useState(5); // percentage
 
-  const addItem = useCallback((menuItem: MenuItem, variation?: { name: string; price: number }) => {
+  const addItem = useCallback((menuItem: MenuItemWithVariations, variation?: { name: string; price: number }) => {
     setItems(current => {
       const price = variation ? variation.price : menuItem.price;
       const variationName = variation?.name;
