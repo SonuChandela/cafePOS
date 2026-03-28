@@ -1,12 +1,15 @@
 import {
-  menuItems, orders, orderItems, categories, outlets, business, staff,
-  type MenuItem, type InsertMenuItem, type Order, type CreateOrderRequest, type OrderWithItems,
+  menuItems, orders, orderItems, inventoryItems, categories, outlets, business, staff,
+  type MenuItem, type InsertMenuItem, type Order, type CreateOrderRequest, type OrderWithItems, type Booking, type InsertBooking, type InventoryItem,
   type MenuItemWithVariations,
   variationGroups,
-  variationOptions
-} from "@shared/schema";
+  variationOptions,
+  bookings,
+  roles,
+  customer
+} from "../shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   getMenuItems(): Promise<MenuItem[]>;
@@ -18,6 +21,15 @@ export interface IStorage {
   getOrder(id: string): Promise<OrderWithItems | undefined>;
   createOrder(order: CreateOrderRequest): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
+  updateOrder(id: string, data: any): Promise<Order>;
+  updateOrderWithItems(id: string, data: any, items?: any[]): Promise<Order>;
+  getBookings(): Promise<Booking[]>;
+  createBooking(booking: any): Promise<Booking>;
+  updateBooking(id: number, data: any): Promise<Booking>;
+  deleteBooking(id: number): Promise<void>;
+  getInventoryItems(): Promise<InventoryItem[]>;
+  updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem>;
+  createInventoryItem(data: any): Promise<InventoryItem>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -29,7 +41,15 @@ export class DatabaseStorage implements IStorage {
   async getMenuItemWithVariations(): Promise<MenuItemWithVariations[]> {
     const data = await db.query.menuItems.findMany({
       with: {
-        category: true,
+        category: {
+          with: {
+            modifierGroups: {
+              with: {
+                modifiers: true,
+              },
+            },
+          },
+        },
         menuItemVariations: {
           with: {
             specificOption: {
@@ -45,7 +65,12 @@ export class DatabaseStorage implements IStorage {
         },
       },
     });
-    return data;
+
+    // Map modifiers to "extras" field for frontend compatibility
+    return data.map(item => ({
+      ...item,
+      extras: item.category?.modifierGroups?.flatMap((group: any) => group.modifiers) || [],
+    })) as MenuItemWithVariations[];
   }
 
   async getMenuItemById(id: number): Promise<MenuItem | undefined> {
@@ -64,29 +89,84 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrders(): Promise<OrderWithItems[]> {
-    const allOrders = await db.select().from(orders).orderBy(desc(orders.createdAt));
-    const ordersWithItems = await Promise.all(
-      allOrders.map(async (order) => {
-        const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
-        return { ...order, items };
-      })
-    );
-    return ordersWithItems;
+    const allOrders = await db.query.orders.findMany({
+      with: {
+        customer: true,
+        items: {
+          with: {
+            menuItem: true,
+          },
+        },
+      },
+      orderBy: desc(orders.createdAt),
+    });
+
+    return allOrders.map(order => ({
+      ...order,
+      customerName: order.customer?.name,
+      customerPhone: order.customer?.mobile, // Mobile is used for phone in schema
+      taxPercentage: order.subtotal > 0 ? Math.round((order.taxAmount / order.subtotal) * 100) : 5,
+    })) as OrderWithItems[];
   }
 
   async getOrder(id: string): Promise<OrderWithItems | undefined> {
-    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, id),
+      with: {
+        customer: true,
+        items: {
+          with: {
+            menuItem: true,
+          },
+        },
+      },
+    });
+
     if (!order) return undefined;
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, id));
-    return { ...order, items };
+    return {
+      ...order,
+      customerName: order.customer?.name,
+      customerPhone: order.customer?.mobile,
+      taxPercentage: order.subtotal > 0 ? Math.round((order.taxAmount / order.subtotal) * 100) : 5,
+    } as OrderWithItems;
   }
 
   async createOrder(orderRequest: CreateOrderRequest): Promise<Order> {
     return await db.transaction(async (tx) => {
+      let customerId = orderRequest.customerId;
+
+      // Create or find customer if details provided
+      if (orderRequest.customerPhone) {
+        const [existingCustomer] = await tx
+          .select()
+          .from(customer)
+          .where(
+            and(
+              eq(customer.mobile, orderRequest.customerPhone),
+              eq(customer.outletId, orderRequest.outletId)
+            )
+          )
+          .limit(1);
+
+        if (existingCustomer) {
+          customerId = existingCustomer.id;
+        } else if (orderRequest.customerName) {
+          const [newCustomer] = await tx
+            .insert(customer)
+            .values({
+              name: orderRequest.customerName,
+              mobile: orderRequest.customerPhone,
+              outletId: orderRequest.outletId,
+            })
+            .returning();
+          customerId = newCustomer.id;
+        }
+      }
+
       const [order] = await tx.insert(orders).values({
         outletId: orderRequest.outletId, // Required UUID from schema
         tableId: orderRequest.tableId,
-        customerId: orderRequest.customerId,
+        customerId: customerId,
         registerSessionId: orderRequest.registerSessionId,
         subtotal: orderRequest.subtotal,
         taxAmount: orderRequest.taxAmount,
@@ -127,6 +207,93 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, id))
       .returning();
     return updatedOrder;
+  }
+
+  async updateOrder(id: string, data: any): Promise<Order> {
+    const [updatedOrder] = await db
+      .update(orders)
+      .set(data)
+      .where(eq(orders.id, id))
+      .returning();
+    return updatedOrder;
+  }
+
+  async updateOrderWithItems(id: string, data: any, items?: any[]): Promise<Order> {
+    return await db.transaction(async (tx) => {
+      const updateData: any = {};
+      if (data.orderStatus !== undefined) updateData.orderStatus = data.orderStatus;
+      if (data.paymentStatus !== undefined) updateData.paymentStatus = data.paymentStatus;
+      if (data.note !== undefined) updateData.note = data.note;
+      if (data.totalAmount !== undefined) updateData.totalAmount = data.totalAmount;
+      if (data.subtotal !== undefined) updateData.subtotal = data.subtotal;
+      if (data.taxAmount !== undefined) updateData.taxAmount = data.taxAmount;
+      if (data.discountAmount !== undefined) updateData.discountAmount = data.discountAmount;
+
+      const [updatedOrder] = await tx.update(orders).set(updateData).where(eq(orders.id, id)).returning();
+
+      if (items !== undefined) {
+        await tx.delete(orderItems).where(eq(orderItems.orderId, id));
+        for (const item of items) {
+          await tx.insert(orderItems).values({
+            orderId: id,
+            menuItemId: item.menuItemId,
+            name: item.name,
+            quantity: item.quantity,
+            priceAtTime: item.priceAtTime,
+            variationName: item.variationName || null,
+            modifiers: item.modifiers || null,
+            modifiersAmount: item.modifiersAmount || 0,
+            totalPrice: item.totalPrice || 0,
+            status: item.status || "pending",
+          });
+        }
+      }
+
+      return updatedOrder;
+    });
+  }
+
+  async getBookings(): Promise<Booking[]> {
+    return await db.select().from(bookings).orderBy(desc(bookings.createdAt));
+  }
+
+  async createBooking(booking: any): Promise<Booking> {
+    const [newBooking] = await db.insert(bookings).values(booking).returning();
+    return newBooking;
+  }
+
+  async updateBooking(id: number, data: any): Promise<Booking> {
+    const [updatedBooking] = await db.update(bookings).set(data).where(eq(bookings.id, id)).returning();
+    return updatedBooking;
+  }
+
+  async deleteBooking(id: number): Promise<void> {
+    await db.delete(bookings).where(eq(bookings.id, id));
+  }
+
+  async getInventoryItems(): Promise<InventoryItem[]> {
+    const data = await db.query.inventoryItems.findMany({
+      with: {
+        category: true,
+      },
+    });
+    return data.map(item => ({
+      ...item,
+      category: item.category?.name || "Uncategorized",
+    })) as InventoryItem[];
+  }
+
+  async updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem> {
+    const [item] = await db.update(inventoryItems)
+      .set({ ...data })
+      .where(eq(inventoryItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async createInventoryItem(data: any): Promise<InventoryItem> {
+    const [item] = await db.insert(inventoryItems).values(data).returning();
+    return item;
   }
 }
 

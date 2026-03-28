@@ -5,7 +5,7 @@ import { relations } from "drizzle-orm";
 // === ENUMS ===
 export const orderStatusEnum = pgEnum("order_status", ["draft", "preparing", "ready", "completed", "cancelled"]);
 export const orderItemStatusEnum = pgEnum("order_item_status", ["pending", "preparing", "ready", "delivered", "cancelled"]);
-export const paymentStatusEnum = pgEnum("payment_status", ["pending", "completed", "failed", "refunded", "partially_paid"]);
+export const paymentStatusEnum = pgEnum("payment_status", ["pending", "paid", "completed", "failed", "refunded", "partially_paid"]);
 export const paymentMethodEnum = pgEnum("payment_method", ["cash", "card", "upi", "mixed", "other"]);
 export const bookingStatusEnum = pgEnum("booking_status", ["pending", "confirmed", "cancelled", "completed"]);
 export const inventoryUnitEnum = pgEnum("inventory_unit", ["kg", "g", "L", "ml", "pcs"]);
@@ -274,6 +274,8 @@ export const tableBooking = pgTable("table_booking", {
   pax: integer("pax").notNull().default(1),
   advanceAmount: integer("advance_amount").default(0).notNull(), // For reservation payments
   notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("booking_time_idx").on(t.bookingTime),
   index("booking_status_idx").on(t.bookingStatus),
@@ -374,9 +376,11 @@ export const activityLogs = pgTable("activity_logs", {
   entityId: text("entity_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
 // === RELATIONS ===
 export const categoryRelations = relations(categories, ({ many, one }) => ({
   menuItems: many(menuItems),
+  modifierGroups: many(modifierGroups),
   outlet: one(outlets, { fields: [categories.outletId], references: [outlets.id] }),
 }));
 export const menuItemRelations = relations(menuItems, ({ many, one }) => ({
@@ -433,35 +437,50 @@ export const insertVariationOptionSchema = createInsertSchema(variationOptions).
 export const insertMenuItemVariationSchema = createInsertSchema(menuItemVariations).omit({ id: true });
 export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertOrderItemSchema = createInsertSchema(orderItems).omit({ id: true });
-export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true });
-export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({ id: true });
-export const insertRecipeIngredientSchema = createInsertSchema(recipeIngredients).omit({ id: true });
+export const insertBookingSchema = createInsertSchema(tableBooking).omit({ id: true });
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true });
+export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 export const insertPrinterSchema = createInsertSchema(printers).omit({ id: true });
+export const insertDeviceSchema = createInsertSchema(devices).omit({ id: true });
+export const insertStaffSchema = createInsertSchema(staff).omit({ id: true });
+export const insertRegisterSessionSchema = createInsertSchema(registerSessions).omit({ id: true });
+export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true });
+export const insertSyncLogSchema = createInsertSchema(syncLogs).omit({ id: true });
+export const insertCustomerSchema = createInsertSchema(customer).omit({ id: true });
+export const insertTableSchema = createInsertSchema(tables).omit({ id: true });
+export const insertModifierGroupSchema = createInsertSchema(modifierGroups).omit({ id: true });
+export const insertModifierSchema = createInsertSchema(modifiers).omit({ id: true });
+
+export const modifierGroupsRelations = relations(modifierGroups, ({ many, one }) => ({
+  modifiers: many(modifiers),
+  category: one(categories, { fields: [modifierGroups.categoryId], references: [categories.id] }),
+  outlet: one(outlets, { fields: [modifierGroups.outletId], references: [outlets.id] }),
+}));
+
+export const modifiersRelations = relations(modifiers, ({ one }) => ({
+  group: one(modifierGroups, { fields: [modifiers.modifierGroupId], references: [modifierGroups.id] }),
+}));
+export const insertInventoryCategorySchema = createInsertSchema(inventoryCategories).omit({ id: true });
+export const insertRecipeIngredientSchema = createInsertSchema(recipeIngredients).omit({ id: true });
+export const insertStockTransactionSchema = createInsertSchema(stockTransactions).omit({ id: true });
+export const insertTaxSchema = createInsertSchema(taxes).omit({ id: true });
+export const insertDiscountSchema = createInsertSchema(discounts).omit({ id: true });
+export const insertBusinessSchema = createInsertSchema(business).omit({ id: true });
+export const insertOutletSchema = createInsertSchema(outlets).omit({ id: true });
+
 // === EXPLICIT API TYPES ===
 export type MenuItem = typeof menuItems.$inferSelect;
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
-export type InsertVariationGroup = z.infer<typeof insertVariationGroupSchema>;
-export type InsertVariationOption = z.infer<typeof insertVariationOptionSchema>;
-export type InsertMenuItemVariation = z.infer<typeof insertMenuItemVariationSchema>;
-export type Category = typeof categories.$inferSelect;
-export type VariationGroup = typeof variationGroups.$inferSelect;
-export type VariationOption = typeof variationOptions.$inferSelect;
-export type MenuItemVariation = typeof menuItemVariations.$inferSelect;
-export type MenuItemWithCategory = MenuItem & { category: Category | null };
-export type MenuItemWithVariations = MenuItem & {
-  category: Category | null;
-  menuItemVariations: (MenuItemVariation & {
-    specificOption: VariationOption & {
-      parentGroup: VariationGroup & {
-        groupOptions: VariationOption[];
-      };
-    };
-  })[];
-};
+
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
-// Composite type for creating an order from API
+export type Booking = typeof tableBooking.$inferSelect;
+export type InsertBooking = z.infer<typeof insertBookingSchema>;
+
 export const createOrderSchema = insertOrderSchema.extend({
+  customerName: z.string().optional(),
+  customerPhone: z.string().optional(),
+  taxPercentage: z.number().default(5),
   items: z.array(z.object({
     menuItemId: z.number(),
     name: z.string(),
@@ -476,4 +495,22 @@ export const createOrderSchema = insertOrderSchema.extend({
   })),
 });
 export type CreateOrderRequest = z.infer<typeof createOrderSchema>;
-export type OrderWithItems = Order & { items: OrderItem[] };
+export type OrderWithItems = Order & {
+  items: (OrderItem & { menuItem?: MenuItem })[];
+  customerName?: string;
+  customerPhone?: string;
+  taxPercentage: number;
+};
+export type MenuItemWithVariations = MenuItem & {
+  category: any;
+  menuItemVariations: any[];
+  extras?: any[];
+};
+export { tableBooking as bookings };
+
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({ id: true });
+export type InventoryItem = typeof inventoryItems.$inferSelect & {
+  category?: string;
+  usedInItems?: string;
+};
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {
   insertMenuItemSchema, createOrderSchema, insertPrinterSchema,
   insertInventoryItemSchema, insertInvoiceSchema, menuItems, orders, printers, inventoryItems, invoices, staff, syncLogs,
-  type MenuItemWithVariations
+  type MenuItemWithVariations, type OrderWithItems
 } from './schema';
 
 export const errorSchemas = {
@@ -42,7 +42,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/orders',
       responses: {
-        200: z.array(z.custom<typeof orders.$inferSelect>()),
+        200: z.array(z.custom<OrderWithItems>()),
       },
     },
     create: {
@@ -58,7 +58,7 @@ export const api = {
       method: 'GET' as const,
       path: '/api/orders/:id',
       responses: {
-        200: z.custom<typeof orders.$inferSelect & { items: any[] }>(),
+        200: z.custom<OrderWithItems>(),
         404: errorSchemas.notFound,
       },
     },

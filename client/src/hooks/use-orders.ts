@@ -13,7 +13,7 @@ export function useOrders() {
     });
 }
 
-export function useOrder(id: number | null) {
+export function useOrder(id: string | null) {
     return useQuery({
         queryKey: [api.orders.get.path, id],
         enabled: !!id,

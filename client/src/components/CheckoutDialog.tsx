@@ -21,7 +21,7 @@ interface CheckoutDialogProps {
   taxAmount: number;
   discount: number;
   total: number;
-  onSuccess: (orderId: number) => void;
+  onSuccess: (orderId: string) => void;
 }
 
 export function CheckoutDialog({
@@ -156,7 +156,7 @@ export function CheckoutDialog({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-[#1A1D1F] font-bold">Payment</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value ?? undefined}>
                         <FormControl>
                           <SelectTrigger className="h-14 bg-white border-none rounded-2xl shadow-sm focus-visible:ring-primary/20">
                             <SelectValue placeholder="Method" />
@@ -179,7 +179,7 @@ export function CheckoutDialog({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-[#1A1D1F] font-bold">Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value ?? undefined}>
                         <FormControl>
                           <SelectTrigger className="h-14 bg-white border-none rounded-2xl shadow-sm focus-visible:ring-primary/20">
                             <SelectValue placeholder="Status" />
@@ -202,19 +202,19 @@ export function CheckoutDialog({
               <div className="space-y-2 mb-6">
                 <div className="flex justify-between text-gray-500 font-medium">
                   <span>Subtotal</span>
-                  <span>${(subtotal / 100).toFixed(2)}</span>
+                  <span>₹{(subtotal / 100).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-500 font-medium">
                   <span>Tax ({taxRate}%)</span>
-                  <span>${(taxAmount / 100).toFixed(2)}</span>
+                  <span>₹{(taxAmount / 100).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-red-500 font-medium">
                   <span>Discount</span>
-                  <span>-${(discount / 100).toFixed(2)}</span>
+                  <span>-₹{(discount / 100).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center pt-2">
                   <span className="text-[#1A1D1F] font-bold">Grand Total</span>
-                  <span className="text-2xl font-extrabold text-primary">${(total / 100).toFixed(2)}</span>
+                  <span className="text-2xl font-extrabold text-primary">₹{(total / 100).toFixed(2)}</span>
                 </div>
               </div>
               <Button
