@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { type MenuItemWithVariations } from '@shared/schema';
 
 export interface CartExtra {
@@ -16,22 +17,71 @@ export interface CartItem {
   notes?: string;
 }
 
+interface CartState {
+  items: CartItem[];
+  discount: number;
+  taxRate: number;
+}
+
 export function useCart() {
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [discount, setDiscount] = useState(0); // in cents
-  const [taxRate, setTaxRate] = useState(5); // percentage
+  const queryClient = useQueryClient();
+
+  const { data: cart = { items: [], discount: 0, taxRate: 5 } } = useQuery<CartState>({
+    queryKey: ['cart-state'],
+    staleTime: Infinity,
+    gcTime: Infinity,
+    initialData: { items: [], discount: 0, taxRate: 5 },
+  });
+
+  // Load taxes implicitly from database
+  const { data: taxes } = useQuery<any[]>({
+    queryKey: ['/api/taxes'],
+    staleTime: Infinity,
+  });
+
+  // Load discounts implicitly from database
+  const { data: discounts } = useQuery<any[]>({
+    queryKey: ['/api/discounts'],
+    staleTime: Infinity,
+  });
+
+  const setCart = useCallback((updater: (prev: CartState) => CartState) => {
+    queryClient.setQueryData<CartState>(['cart-state'], (old = { items: [], discount: 0, taxRate: 5 }) => updater(old));
+  }, [queryClient]);
+
+  const setItems = useCallback((updater: (prev: CartItem[]) => CartItem[]) => {
+    setCart(prev => ({ ...prev, items: updater(prev.items) }));
+  }, [setCart]);
+
+  const setDiscount = useCallback((discount: number) => {
+    setCart(prev => ({ ...prev, discount }));
+  }, [setCart]);
+
+  const setTaxRate = useCallback((taxRate: number) => {
+    setCart(prev => ({ ...prev, taxRate }));
+  }, [setCart]);
+
+  // Sync default tax rate once loaded
+  useEffect(() => {
+    if (taxes && taxes.length > 0) {
+      const defaultTax = taxes.find((t: any) => t.isDefault) || taxes[0];
+      if (defaultTax) {
+        setTaxRate(defaultTax.value / 100); // e.g. 500 -> 5%
+      }
+    }
+  }, [taxes, setTaxRate]);
 
   const addItem = useCallback((menuItem: MenuItemWithVariations, variation?: { name: string; price: number }) => {
     setItems(current => {
       const price = variation ? variation.price : menuItem.price;
       const variationName = variation?.name;
-      
-      const existing = current.find(i => 
+
+      const existing = current.find(i =>
         i.menuItemId === menuItem.id && i.variationName === variationName
       );
 
       if (existing) {
-        return current.map(i => 
+        return current.map(i =>
           (i.menuItemId === menuItem.id && i.variationName === variationName)
             ? { ...i, quantity: i.quantity + 1 }
             : i
@@ -74,7 +124,7 @@ export function useCart() {
   }, []);
 
   const updateNotes = useCallback((menuItemId: number, notes: string, variationName?: string) => {
-    setItems(current => current.map(item => 
+    setItems(current => current.map(item =>
       (item.menuItemId === menuItemId && item.variationName === variationName) ? { ...item, notes } : item
     ));
   }, []);
@@ -84,20 +134,20 @@ export function useCart() {
   }, []);
 
   const clearCart = useCallback(() => {
-    setItems([]);
+    setItems(() => []);
     setDiscount(0);
-  }, []);
+  }, [setItems, setDiscount]);
 
-  const subtotal = items.reduce((sum, item) => {
+  const subtotal = cart.items.reduce((sum, item) => {
     const extrasTotal = item.selectedExtras.reduce((s, e) => s + e.price, 0);
     return sum + ((item.price + extrasTotal) * item.quantity);
   }, 0);
 
-  const taxAmount = Math.round(subtotal * (taxRate / 100));
-  const total = Math.max(0, subtotal + taxAmount - discount);
+  const taxAmount = Math.round(subtotal * (cart.taxRate / 100));
+  const total = Math.max(0, subtotal + taxAmount - cart.discount);
 
   return {
-    items,
+    items: cart.items,
     addItem,
     updateQuantity,
     toggleExtra,
@@ -105,11 +155,13 @@ export function useCart() {
     removeItem,
     clearCart,
     subtotal,
-    taxRate,
+    taxRate: cart.taxRate,
     setTaxRate,
     taxAmount,
-    discount,
+    discount: cart.discount,
     setDiscount,
-    total
+    total,
+    taxes,
+    discounts
   };
 }

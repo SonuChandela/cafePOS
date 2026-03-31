@@ -2,8 +2,12 @@ import { pgTable, text, serial, integer, boolean, timestamp, jsonb, uuid, index,
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
+import { customAlphabet } from "nanoid";
+
+const generateId = (prefix: string) => `${prefix}-${customAlphabet("1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ", 6)()}`;
 // === ENUMS ===
-export const orderStatusEnum = pgEnum("order_status", ["draft", "preparing", "ready", "completed", "cancelled"]);
+export const orderStatusEnum = pgEnum("order_status", ["draft", "preparing", "ready", "delivered", "completed", "cancelled"]);
+export const orderTypeEnum = pgEnum("order_type", ["dine-in", "takeaway", "delivery"]);
 export const orderItemStatusEnum = pgEnum("order_item_status", ["pending", "preparing", "ready", "delivered", "cancelled"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "paid", "completed", "failed", "refunded", "partially_paid"]);
 export const paymentMethodEnum = pgEnum("payment_method", ["cash", "card", "upi", "mixed", "other"]);
@@ -21,12 +25,15 @@ export const plans = pgTable("plans", {
 });
 export const business = pgTable("business", {
   id: uuid("id").primaryKey().defaultRandom(),
+  displayId: text("display_id").notNull().$defaultFn(() => generateId("BUS")),
   name: text("name").notNull(),
   contact: text("mobile").notNull(),
   email: text("email").notNull(),
   address: text("address").notNull(),
   logo: text("logo"), // made optional
-});
+}, (t) => [
+  index("business_display_id_idx").on(t.displayId),
+]);
 export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   planId: integer("plan_id").references(() => plans.id),
@@ -41,6 +48,7 @@ export const subscriptions = pgTable("subscriptions", {
 // === OUTLETS ===
 export const outlets = pgTable("outlets", {
   id: uuid("id").primaryKey().defaultRandom(),
+  displayId: text("display_id").notNull().$defaultFn(() => generateId("OUT")),
   name: text("name").notNull(),
   businessId: uuid("business_id").references(() => business.id).notNull(),
   address: text("address").notNull(),
@@ -55,6 +63,7 @@ export const outlets = pgTable("outlets", {
   maxDevices: integer("max_devices").notNull().default(1), // Can override plan mapping
 }, (t) => [
   index("outlet_business_idx").on(t.businessId),
+  index("outlet_display_id_idx").on(t.displayId),
 ]);
 // === ROLES & PERMISSIONS ===
 // Roles handles dynamic scopes. Using isSystem to lock default roles (admin, cashier, waiter).
@@ -71,6 +80,7 @@ export const permissions = pgTable("permissions", {
 });
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
+  displayId: text("display_id").notNull().$defaultFn(() => generateId("USR")),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
@@ -78,6 +88,7 @@ export const users = pgTable("users", {
   outletId: uuid("outlet_id").references(() => outlets.id),
 }, (t) => [
   index("users_outlet_idx").on(t.outletId),
+  index("users_display_id_idx").on(t.displayId),
 ]);
 export const userPermissions = pgTable("user_permissions", {
   id: serial("id").primaryKey(),
@@ -87,6 +98,7 @@ export const userPermissions = pgTable("user_permissions", {
 // === STAFF & ATTENDANCE ===
 export const staff = pgTable("staff", {
   id: serial("id").primaryKey(),
+  displayId: text("display_id").notNull().$defaultFn(() => generateId("STF")),
   name: text("name").notNull(),
   pin: text("pin").notNull(), // 4-digit passcode for quick login
   mobile: text("mobile").notNull(),
@@ -97,6 +109,7 @@ export const staff = pgTable("staff", {
   userId: integer("user_id").references(() => users.id),
 }, (t) => [
   index("staff_outlet_idx").on(t.outletId),
+  index("staff_display_id_idx").on(t.displayId),
 ]);
 export const staffAttendance = pgTable("staff_attendance", {
   id: serial("id").primaryKey(),
@@ -176,7 +189,6 @@ export const modifierGroups = pgTable("modifier_groups", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(), // "Extra Toppings"
   outletId: uuid("outlet_id").references(() => outlets.id).notNull(),
-  categoryId: integer("category_id").references(() => categories.id), // Apply to whole category
   description: text("description"),
   available: boolean("available").default(true).notNull(),
   minSelections: integer("min_selections").default(0),
@@ -186,7 +198,18 @@ export const modifiers = pgTable("modifiers", {
   id: serial("id").primaryKey(),
   modifierGroupId: integer("modifier_group_id").references(() => modifierGroups.id).notNull(),
   name: text("name").notNull(), // "Extra Cheese", "Oat Milk"
-  price: integer("price").notNull(), // Price of the extra in cents
+  defaultPrice: integer("default_price").notNull(), // Price of the extra in cents
+});
+export const categoryModifierGroups = pgTable("category_modifier_groups", {
+  id: serial("id").primaryKey(),
+  categoryId: integer("category_id").references(() => categories.id).notNull(),
+  modifierGroupId: integer("modifier_group_id").references(() => modifierGroups.id).notNull(),
+});
+export const variationModifierPrices = pgTable("variation_modifier_prices", {
+  id: serial("id").primaryKey(),
+  menuItemVariationId: integer("menu_item_variation_id").references(() => menuItemVariations.id).notNull(),
+  modifierId: integer("modifier_id").references(() => modifiers.id).notNull(),
+  price: integer("price").notNull()
 });
 // === INVENTORY MANAGEMENT ===
 export const inventoryCategories = pgTable("inventory_categories", {
@@ -197,6 +220,7 @@ export const inventoryCategories = pgTable("inventory_categories", {
 });
 export const inventoryItems = pgTable("inventory_items", {
   id: serial("id").primaryKey(),
+  displayId: text("display_id").notNull().$defaultFn(() => generateId("ITM")),
   name: text("name").notNull(),
   categoryId: integer("category_id").references(() => inventoryCategories.id).notNull(),
   outletId: uuid("outlet_id").references(() => outlets.id).notNull(),
@@ -204,7 +228,9 @@ export const inventoryItems = pgTable("inventory_items", {
   currentStock: integer("current_stock").notNull().default(0), // stored in base unit (e.g., 1000 for 1kg)
   minStockLevel: integer("min_stock_level").notNull().default(0), // trigger alert if stock drops below this
   costPerUnit: integer("cost_per_unit").notNull().default(0), // in cents per base unit
-});
+}, (t) => [
+  index("inventory_items_display_id_idx").on(t.displayId),
+]);
 // Recipe Mapping: How much inventory is used when a menu item is ordered
 export const recipeIngredients = pgTable("recipe_ingredients", {
   id: serial("id").primaryKey(),
@@ -246,6 +272,7 @@ export const discounts = pgTable("discounts", {
 // === CUSTOMERS ===
 export const customer = pgTable("customer", {
   id: serial("id").primaryKey(),
+  displayId: text("display_id").notNull().$defaultFn(() => generateId("CUS")),
   name: text("name").notNull(),
   mobile: text("mobile").notNull(),
   email: text("email"),
@@ -253,6 +280,7 @@ export const customer = pgTable("customer", {
   loyaltyPoints: integer("loyalty_points").default(0),
 }, (t) => [
   index("customer_mobile_idx").on(t.mobile),
+  index("customer_display_id_idx").on(t.displayId),
 ]);
 // === TABLES & RESERVATIONS ===
 export const tables = pgTable("tables", {
@@ -264,6 +292,7 @@ export const tables = pgTable("tables", {
 });
 export const tableBooking = pgTable("table_booking", {
   id: serial("id").primaryKey(),
+  displayId: text("display_id").notNull().$defaultFn(() => generateId("BKG")),
   customerName: text("customer_name").notNull(),
   customerMobile: text("customer_mobile").notNull(),
   customerEmail: text("customer_email"),
@@ -279,6 +308,7 @@ export const tableBooking = pgTable("table_booking", {
 }, (t) => [
   index("booking_time_idx").on(t.bookingTime),
   index("booking_status_idx").on(t.bookingStatus),
+  index("booking_display_id_idx").on(t.displayId),
 ]);
 // === CASH REGISTERS (SHIFT TRACKING) ===
 export const registerSessions = pgTable("register_sessions", {
@@ -300,21 +330,26 @@ export const registerSessions = pgTable("register_sessions", {
 // === ORDERS & KDS ===
 export const orders = pgTable("orders", {
   id: uuid("id").defaultRandom().primaryKey(),
+  displayId: text("display_id").notNull().$defaultFn(() => generateId("ORD")),
   outletId: uuid("outlet_id").references(() => outlets.id).notNull(),
   tableId: integer("table_id").references(() => tables.id),
+  staffId: integer("staff_id").references(() => staff.id).notNull(),
+  deviceId: integer("device_id").references(() => devices.id),
   customerId: integer("customer_id").references(() => customer.id),
   registerSessionId: integer("register_session_id").references(() => registerSessions.id),
   subtotal: integer("subtotal").notNull().default(0),
-
+  orderType: text("order_type").notNull().default("dine-in"), // dine-in, takeaway, delivery
   // Custom taxes & discounts applied to this order (stored as JSON for historical accuracy)
   taxesApplied: jsonb("taxes_applied"), // e.g. [{ name: "SGST", value: 250, amount: 50 }, ...]
   discountsApplied: jsonb("discounts_applied"),
   taxAmount: integer("tax_amount").notNull().default(0),
   discountAmount: integer("discount_amount").notNull().default(0),
-  totalAmount: integer("total_amount").notNull().default(0), // Subtotal + Tax - Discount
-
+  grandTotal: integer("grand_total").notNull().default(0), // Subtotal + Tax - Discount
+  roundOffAmount: integer("round_off_amount").notNull().default(0),
   paymentMethod: paymentMethodEnum("payment_method"),
   paymentStatus: paymentStatusEnum("payment_status").default("pending"),
+  paidAmount: integer("paid_amount").notNull().default(0),
+  dueAmount: integer("due_amount").notNull().default(0),
   orderStatus: orderStatusEnum("status").default("draft"), // Note: we use "draft" for Cart items
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -322,27 +357,38 @@ export const orders = pgTable("orders", {
 }, (t) => [
   index("orders_outlet_idx").on(t.outletId),
   index("orders_created_idx").on(t.createdAt),
+  index("orders_display_id_idx").on(t.displayId),
 ]);
 
 export const orderItems = pgTable("order_items", {
   id: uuid("id").defaultRandom().primaryKey(),
   orderId: uuid("order_id").references(() => orders.id).notNull(),
   menuItemId: integer("menu_item_id").references(() => menuItems.id).notNull(),
+  variationId: integer("variation_id").references(() => variationOptions.id),
+  variationName: text("variation_name"),
   name: text("name").notNull(),
   quantity: integer("quantity").notNull(),
-  priceAtTime: integer("price_at_time").notNull(),
-  variationName: text("variation_name"),
+  basePrice: integer("base_price").notNull(),
   note: text("note"),
-  modifiers: jsonb("modifiers"),
   modifiersAmount: integer("modifiers_amount").notNull().default(0),
-  totalPrice: integer("total_price").notNull(),
+  finalPrice: integer("final_price").notNull(),
 
   // KDS Support
   status: orderItemStatusEnum("status").default("pending").notNull(), // tracks item state in kitchen
 });
+
+// Order Item Modifiers
+export const orderItemModifiers = pgTable("order_item_modifiers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderItemId: uuid("order_item_id").references(() => orderItems.id).notNull(),
+  modifierName: text("modifier_name").notNull(),
+  modifierPrice: integer("modifier_price").notNull(),
+});
+
 // === INVOICES ===
 export const invoices = pgTable("invoices", {
   id: uuid("id").defaultRandom().primaryKey(),
+  displayId: text("display_id").notNull().$defaultFn(() => generateId("INV")),
   invoiceNumber: text("invoice_number").notNull().unique(), // E.g., INV-001
   orderId: uuid("order_id").references(() => orders.id),
   bookingId: integer("booking_id").references(() => tableBooking.id),
@@ -351,7 +397,9 @@ export const invoices = pgTable("invoices", {
   pdfUrl: text("pdf_url"), // Hosted PDF receipt path
   status: paymentStatusEnum("status").default("pending"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("invoices_display_id_idx").on(t.displayId),
+]);
 // === OFFLINE SYNC & AUDIT TRAIL ===
 export const syncLogs = pgTable("sync_logs", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -380,7 +428,7 @@ export const activityLogs = pgTable("activity_logs", {
 // === RELATIONS ===
 export const categoryRelations = relations(categories, ({ many, one }) => ({
   menuItems: many(menuItems),
-  modifierGroups: many(modifierGroups),
+  categoryModifierGroups: many(categoryModifierGroups),
   outlet: one(outlets, { fields: [categories.outletId], references: [outlets.id] }),
 }));
 export const menuItemRelations = relations(menuItems, ({ many, one }) => ({
@@ -390,6 +438,21 @@ export const menuItemRelations = relations(menuItems, ({ many, one }) => ({
 export const menuItemVariationsRelations = relations(menuItemVariations, ({ many, one }) => ({
   menuItem: one(menuItems, { fields: [menuItemVariations.menuItemId], references: [menuItems.id] }),
   specificOption: one(variationOptions, { fields: [menuItemVariations.variationOptionId], references: [variationOptions.id] }),
+}));
+export const modifierGroupsRelations = relations(modifierGroups, ({ many, one }) => ({
+  modifiers: many(modifiers),
+  outlet: one(outlets, { fields: [modifierGroups.outletId], references: [outlets.id] }),
+}));
+export const modifiersRelations = relations(modifiers, ({ one }) => ({
+  group: one(modifierGroups, { fields: [modifiers.modifierGroupId], references: [modifierGroups.id] }),
+}));
+export const categoryModifierGroupsRelations = relations(categoryModifierGroups, ({ one }) => ({
+  category: one(categories, { fields: [categoryModifierGroups.categoryId], references: [categories.id] }),
+  modifierGroup: one(modifierGroups, { fields: [categoryModifierGroups.modifierGroupId], references: [modifierGroups.id] }),
+}));
+export const variationModifierPricesRelations = relations(variationModifierPrices, ({ one }) => ({
+  menuItemVariation: one(menuItemVariations, { fields: [variationModifierPrices.menuItemVariationId], references: [menuItemVariations.id] }),
+  modifier: one(modifiers, { fields: [variationModifierPrices.modifierId], references: [modifiers.id] }),
 }));
 export const variationGroupsRelations = relations(variationGroups, ({ many, one }) => ({
   groupOptions: many(variationOptions),
@@ -405,9 +468,13 @@ export const ordersRelations = relations(orders, ({ many, one }) => ({
   customer: one(customer, { fields: [orders.customerId], references: [customer.id] }),
   session: one(registerSessions, { fields: [orders.registerSessionId], references: [registerSessions.id] }),
 }));
-export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+export const orderItemsRelations = relations(orderItems, ({ many, one }) => ({
   order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
-  menuItem: one(menuItems, { fields: [orderItems.menuItemId], references: [menuItems.id] })
+  menuItem: one(menuItems, { fields: [orderItems.menuItemId], references: [menuItems.id] }),
+  orderItemModifiers: many(orderItemModifiers),
+}));
+export const orderItemModifiersRelations = relations(orderItemModifiers, ({ one }) => ({
+  orderItem: one(orderItems, { fields: [orderItemModifiers.orderItemId], references: [orderItems.id] }),
 }));
 export const registerSessionsRelations = relations(registerSessions, ({ many, one }) => ({
   orders: many(orders),
@@ -435,8 +502,9 @@ export const insertMenuItemSchema = createInsertSchema(menuItems).omit({ id: tru
 export const insertVariationGroupSchema = createInsertSchema(variationGroups).omit({ id: true });
 export const insertVariationOptionSchema = createInsertSchema(variationOptions).omit({ id: true });
 export const insertMenuItemVariationSchema = createInsertSchema(menuItemVariations).omit({ id: true });
-export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertOrderItemModifierSchema = createInsertSchema(orderItemModifiers).omit({ id: true });
 export const insertOrderItemSchema = createInsertSchema(orderItems).omit({ id: true });
+export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertBookingSchema = createInsertSchema(tableBooking).omit({ id: true });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
@@ -450,16 +518,8 @@ export const insertCustomerSchema = createInsertSchema(customer).omit({ id: true
 export const insertTableSchema = createInsertSchema(tables).omit({ id: true });
 export const insertModifierGroupSchema = createInsertSchema(modifierGroups).omit({ id: true });
 export const insertModifierSchema = createInsertSchema(modifiers).omit({ id: true });
-
-export const modifierGroupsRelations = relations(modifierGroups, ({ many, one }) => ({
-  modifiers: many(modifiers),
-  category: one(categories, { fields: [modifierGroups.categoryId], references: [categories.id] }),
-  outlet: one(outlets, { fields: [modifierGroups.outletId], references: [outlets.id] }),
-}));
-
-export const modifiersRelations = relations(modifiers, ({ one }) => ({
-  group: one(modifierGroups, { fields: [modifiers.modifierGroupId], references: [modifierGroups.id] }),
-}));
+export const insertCategoryModifierGroupSchema = createInsertSchema(categoryModifierGroups).omit({ id: true });
+export const insertVariationModifierPriceSchema = createInsertSchema(variationModifierPrices).omit({ id: true });
 export const insertInventoryCategorySchema = createInsertSchema(inventoryCategories).omit({ id: true });
 export const insertRecipeIngredientSchema = createInsertSchema(recipeIngredients).omit({ id: true });
 export const insertStockTransactionSchema = createInsertSchema(stockTransactions).omit({ id: true });
@@ -471,6 +531,7 @@ export const insertOutletSchema = createInsertSchema(outlets).omit({ id: true })
 // === EXPLICIT API TYPES ===
 export type MenuItem = typeof menuItems.$inferSelect;
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
+export type InsertOptions = z.infer<typeof insertVariationOptionSchema>;
 
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
@@ -481,15 +542,18 @@ export const createOrderSchema = insertOrderSchema.extend({
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   taxPercentage: z.number().default(5),
+  orderType: z.enum(["dine-in", "takeaway", "delivery"]).default("dine-in"),
+  tableId: z.coerce.number().optional(),
   items: z.array(z.object({
     menuItemId: z.number(),
+    variationId: z.number().optional(),
+    variationName: z.string().optional(),
     name: z.string(),
     quantity: z.number().min(1),
-    priceAtTime: z.number(),
-    variationName: z.string().optional(),
+    basePrice: z.number(),
     modifiers: z.any().optional(),
     modifiersAmount: z.number().default(0),
-    totalPrice: z.number(),
+    finalPrice: z.number(),
     note: z.string().optional(), // Adding note support for order items
     status: z.string().optional() // for KDS
   })),
@@ -502,8 +566,8 @@ export type OrderWithItems = Order & {
   taxPercentage: number;
 };
 export type MenuItemWithVariations = MenuItem & {
-  category: any;
-  menuItemVariations: any[];
+  categoryName: any;
+  variations?: any[];
   extras?: any[];
 };
 export { tableBooking as bookings };

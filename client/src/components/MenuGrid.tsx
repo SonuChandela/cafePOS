@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 
 interface MenuGridProps {
-  onAdd: (item: MenuItemWithVariations, variation?: { name: string; price: number }) => void;
+  onAdd: (item: MenuItemWithVariations, categoryName: string, variation?: { name: string; price: number }, extras?: any[]) => void;
 }
 
 export function MenuGrid({ onAdd }: MenuGridProps) {
@@ -16,17 +16,16 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("All");
   const [selectedItemForVariation, setSelectedItemForVariation] = useState<MenuItemWithVariations | null>(null);
-  const categories = ["All", ...Array.from(new Set(menuItems?.map(i => i.category?.name).filter(Boolean) || []))] as string[];
-  console.log(menuItems);
+  const categories = ["All", ...Array.from(new Set(menuItems?.map(i => i.categoryName).filter(Boolean) || []))] as string[];
   const filteredItems = menuItems?.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = category === "All" || item.category?.name === category;
+    const matchesCategory = category === "All" || item.categoryName === category;
     return matchesSearch && matchesCategory;
   });
 
   const getCategoryCount = (cat: string) => {
     if (cat === "All") return menuItems?.length || 0;
-    return menuItems?.filter(i => i.category?.name === cat).length || 0;
+    return menuItems?.filter(i => i.categoryName === cat).length || 0;
   };
 
   if (isLoading) {
@@ -41,12 +40,12 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
 
   const handleAddClick = (item: MenuItemWithVariations) => {
     // Check if there are any variation options in any group
-    const hasVariations = (item.menuItemVariations?.length || 0) > 0;
-
+    const hasVariations = (item?.variations?.length || 0) > 0;
     if (hasVariations) {
+
       setSelectedItemForVariation(item);
     } else {
-      onAdd(item);
+      onAdd(item, item.categoryName);
     };
   }
 
@@ -98,11 +97,11 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
                     <Utensils className="w-12 h-12" />
                   </div>
                 )}
-                {(item.menuItemVariations?.length || 0) > 0 && (
-                  <div className="absolute top-2 right-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-black text-primary flex items-center gap-1 shadow-sm">
-                    Variations <ChevronDown className="w-3 h-3" />
+                {item.variations?.map((v) => (
+                  <div className="absolute top-2 right-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-[12px] font-black text-primary flex items-center gap-1 shadow-sm" key={v.id}>
+                    {v.groupName} <ChevronDown className="w-3 h-3" />
                   </div>
-                )}
+                ))}
                 <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <Plus className="w-10 h-10 text-white drop-shadow-md" />
                 </div>
@@ -138,22 +137,23 @@ export function MenuGrid({ onAdd }: MenuGridProps) {
             <p className="text-center text-gray-400 font-medium">Choose your preferred size</p>
           </DialogHeader>
           <div className="space-y-4 mt-4">
-            {selectedItemForVariation?.menuItemVariations?.map((vg, i) => ({
-              id: vg.specificOption.id,
-              name: `${vg.specificOption.parentGroup.name}: ${vg.specificOption.name}`,
-              price: vg.price
-            })).map((v, i) => (
+            {selectedItemForVariation?.variations?.map((v, i) => (
               <Button
-                key={v.id || i}
+                key={v.optionId || i}
                 variant="outline"
                 className="w-full h-20 rounded-2xl flex justify-between px-8 border-gray-100 hover:border-primary hover:text-primary transition-all font-black text-lg shadow-sm"
                 onClick={() => {
-                  onAdd(selectedItemForVariation, v);
-                  setSelectedItemForVariation(null);
+                  if (selectedItemForVariation) {
+                    onAdd(selectedItemForVariation, selectedItemForVariation.categoryName, {
+                      name: v.optionName,
+                      price: Number(v.optionPrice)
+                    });
+                    setSelectedItemForVariation(null);
+                  }
                 }}
               >
-                <span>{v.name}</span>
-                <span className="text-primary">₹{(v.price / 100).toFixed(2)}</span>
+                <span>{v.optionName}</span>
+                <span className="text-primary">₹{Number(v.optionPrice).toFixed(2)}</span>
               </Button>
             ))}
           </div>

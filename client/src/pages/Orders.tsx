@@ -22,7 +22,7 @@ type EditItem = {
   menuItemId: number;
   name: string;
   quantity: number;
-  priceAtTime: number;
+  basePrice: number;
   variationName?: string | null;
   modifiers: any;
   modifiersAmount: number;
@@ -44,7 +44,7 @@ export default function Orders() {
   const filteredOrders = orders?.filter(order => 
     order.customerName?.toLowerCase().includes(search.toLowerCase()) ||
     order.customerPhone?.includes(search) ||
-    order.id.toString().includes(search)
+    order.displayId?.toLowerCase().includes(search.toLowerCase())
   );
 
   const openEditMode = (order: OrderWithItems) => {
@@ -54,9 +54,9 @@ export default function Orders() {
       menuItemId: i.menuItemId,
       name: i.name,
       quantity: i.quantity,
-      priceAtTime: i.priceAtTime,
+      basePrice: i.basePrice,
       variationName: i.variationName,
-      modifiers: i.modifiers || null,
+      modifiers: (i as any).modifiers || null,
       modifiersAmount: i.modifiersAmount || 0,
     })));
     setOrderStatus(order.orderStatus || "");
@@ -64,7 +64,7 @@ export default function Orders() {
     setOrderNotes(order.note || "");
   };
 
-  const editSubtotal = editItems.reduce((s, i) => s + i.priceAtTime * i.quantity, 0);
+  const editSubtotal = editItems.reduce((s, i) => s + i.basePrice * i.quantity, 0);
   const editTaxAmount = selectedOrder ? Math.round(editSubtotal * selectedOrder.taxPercentage / 100) : 0;
   const editDiscount = selectedOrder?.discountAmount || 0;
   const editTotal = editSubtotal + editTaxAmount - editDiscount;
@@ -92,7 +92,7 @@ export default function Orders() {
         items: editItems,
         subtotal: editSubtotal,
         taxAmount: editTaxAmount,
-        totalAmount: editTotal,
+        grandTotal: editTotal,
       }
     });
   };
@@ -126,7 +126,7 @@ export default function Orders() {
         menuItemId: menuItem.id,
         name: menuItem.name,
         quantity: 1,
-        priceAtTime: menuItem.price,
+        basePrice: menuItem.price,
         variationName: null,
         modifiers: null,
         modifiersAmount: 0,
@@ -198,7 +198,7 @@ export default function Orders() {
                       ))
                     ) : filteredOrders?.map((order) => (
                       <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                        <td className="font-bold text-[#1A1D1F] pl-5 py-3 text-sm">#{order.id}</td>
+                        <td className="font-bold text-[#1A1D1F] pl-5 py-3 text-sm">#{order.displayId}</td>
                         <td className="px-2 py-3">
                           <div className="font-bold text-[#1A1D1F] text-sm">{order.customerName || 'Walk-in'}</div>
                           <div className="text-[10px] text-gray-400 font-bold uppercase">{format(new Date(order.createdAt), "dd MMM, HH:mm")}</div>
@@ -226,7 +226,7 @@ export default function Orders() {
                           </Badge>
                         </td>
                         <td className="px-2 py-3 font-black text-[#1A1D1F] text-sm">
-                          ₹{(order.totalAmount / 100).toFixed(2)}
+                          ₹{(order.grandTotal / 100).toFixed(2)}
                         </td>
                         <td className="text-right pr-5 py-3">
                           <div className="flex justify-end gap-1.5">
@@ -235,7 +235,7 @@ export default function Orders() {
                               size="icon" 
                               onClick={() => { setSelectedOrder(order); setViewMode("view"); }}
                               className="w-8 h-8 rounded-xl hover:bg-white hover:text-primary hover:shadow-sm"
-                              data-testid={`button-view-${order.id}`}
+                              data-testid={`button-view-${order.displayId}`}
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
@@ -245,7 +245,7 @@ export default function Orders() {
                               onClick={() => openEditMode(order)}
                               disabled={isCompleted(order)}
                               className="w-8 h-8 rounded-xl hover:bg-white hover:text-primary hover:shadow-sm disabled:opacity-30"
-                              data-testid={`button-edit-${order.id}`}
+                              data-testid={`button-edit-${order.displayId}`}
                               title={isCompleted(order) ? "Completed orders cannot be edited" : "Edit order"}
                             >
                               <Edit className="w-4 h-4" />
@@ -283,10 +283,10 @@ export default function Orders() {
                     <Button variant="outline" onClick={() => setSelectedOrder(null)} className="flex-1 h-12 rounded-2xl font-bold">Close</Button>
                   </div>
                 </div>
-              ) : (
+              ) : viewMode === "edit" ? (
                 <div className="p-5 md:p-7">
                   <DialogHeader className="mb-5">
-                    <DialogTitle className="text-xl font-black text-[#1A1D1F]">Edit Order #{selectedOrder.id}</DialogTitle>
+                    <DialogTitle className="text-xl font-black text-[#1A1D1F]">Edit Order #{selectedOrder.displayId}</DialogTitle>
                     <p className="text-gray-400 font-medium text-sm">Modify items, status, and notes</p>
                   </DialogHeader>
                   
@@ -350,7 +350,7 @@ export default function Orders() {
                                   {item.variationName && (
                                     <p className="text-[10px] text-primary font-black uppercase">{item.variationName}</p>
                                   )}
-                                  <p className="text-xs text-gray-400 font-bold">₹{(item.priceAtTime / 100).toFixed(2)} each</p>
+                                  <p className="text-xs text-gray-400 font-bold">₹{(item.basePrice / 100).toFixed(2)} each</p>
                                 </div>
                                 <div className="flex items-center gap-1 bg-white rounded-xl p-0.5">
                                   <button
@@ -368,7 +368,7 @@ export default function Orders() {
                                   </button>
                                 </div>
                                 <p className="font-black text-sm text-[#1A1D1F] w-16 text-right">
-                                  ₹{(item.priceAtTime * item.quantity / 100).toFixed(2)}
+                                  ₹{(item.basePrice * item.quantity / 100).toFixed(2)}
                                 </p>
                                 <button
                                   onClick={() => removeEditItem(idx)}
@@ -455,7 +455,7 @@ export default function Orders() {
                     </div>
                   </div>
                 </div>
-              )}
+              ) : null}
             </>
           )}
         </DialogContent>

@@ -142,4 +142,31 @@ export async function registerRoutes(httpServer: any, app: Express): Promise<voi
       res.status(500).json({ message: "Failed to create inventory item" });
     }
   });
+
+  app.get("/api/taxes", async (_req, res) => {
+    try {
+      const data = await storage.getTaxes();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch taxes" });
+    }
+  });
+
+  app.get("/api/discounts", async (_req, res) => {
+    try {
+      const data = await storage.getDiscounts();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch discounts" });
+    }
+  });
+
+  app.get("/api/tables", async (_req, res) => {
+    try {
+      const data = await storage.getTables();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch tables" });
+    }
+  });
 }

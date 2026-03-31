@@ -7,7 +7,6 @@ export function useMenu() {
     queryKey: [api.menu.list.path],
     queryFn: async () => {
       const res = await fetch(api.menu.list.path);
-      console.log(res);
       if (!res.ok) throw new Error("Failed to fetch menu items");
       const data = api.menu.list.responses[200].parse(await res.json());
       return data;

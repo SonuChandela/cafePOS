@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createOrderSchema, type CreateOrderRequest, type Order } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -10,24 +10,28 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type CartItem } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, Banknote, QrCode, User, Phone, Activity } from "lucide-react";
+import { CreditCard, Banknote, QrCode, User, Phone, Activity, ChefHat, ShoppingBag, Truck, LayoutDashboard } from "lucide-react";
+
+import { useCart } from "@/hooks/use-cart";
+import { useEffect } from "react";
 
 interface CheckoutDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  items: CartItem[];
-  subtotal: number;
-  taxRate: number;
-  taxAmount: number;
-  discount: number;
-  total: number;
   onSuccess: (orderId: string) => void;
 }
 
 export function CheckoutDialog({
-  open, onOpenChange, items, subtotal, taxRate, taxAmount, discount, total, onSuccess
+  open, onOpenChange, onSuccess
 }: CheckoutDialogProps) {
   const { toast } = useToast();
+  const { items, subtotal, taxRate, taxAmount, discount, total } = useCart();
+
+  const { data: tables } = useQuery<any[]>({
+    queryKey: ["/api/tables"],
+    enabled: open,
+  });
+
   const form = useForm<CreateOrderRequest>({
     resolver: zodResolver(createOrderSchema),
     defaultValues: {
@@ -36,23 +40,50 @@ export function CheckoutDialog({
       paymentMethod: "cash",
       paymentStatus: "pending",
       orderStatus: "preparing",
+      orderType: "dine-in",
+      tableId: undefined,
       subtotal: subtotal,
       taxPercentage: taxRate,
       taxAmount: taxAmount,
       discountAmount: discount,
-      totalAmount: total,
+      grandTotal: total,
       items: items.map(i => ({
         menuItemId: i.menuItemId,
         name: i.name,
         quantity: i.quantity,
-        priceAtTime: i.price,
+        basePrice: i.price,
         variationName: i.variationName,
         modifiers: i.selectedExtras, // Correct JSON array payload instead of tracking string
         modifiersAmount: i.selectedExtras.reduce((s, e) => s + e.price, 0),
-        totalPrice: ((i.price) + i.selectedExtras.reduce((s, e) => s + e.price, 0)) * i.quantity
+        finalPrice: ((i.price) + i.selectedExtras.reduce((s, e) => s + e.price, 0)) * i.quantity
       })),
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        ...form.getValues(),
+        subtotal: subtotal,
+        taxPercentage: taxRate,
+        taxAmount: taxAmount,
+        discountAmount: discount,
+        grandTotal: total,
+        orderType: "dine-in",
+        tableId: undefined,
+        items: items.map(i => ({
+          menuItemId: i.menuItemId,
+          name: i.name,
+          quantity: i.quantity,
+          basePrice: i.price,
+          variationName: i.variationName,
+          modifiers: i.selectedExtras,
+          modifiersAmount: i.selectedExtras.reduce((s, e) => s + e.price, 0),
+          finalPrice: ((i.price) + i.selectedExtras.reduce((s, e) => s + e.price, 0)) * i.quantity
+        })),
+      });
+    }
+  }, [open, items, subtotal, taxRate, taxAmount, discount, total, form]);
 
   const mutation = useMutation({
     mutationFn: async (data: CreateOrderRequest) => {
@@ -80,16 +111,16 @@ export function CheckoutDialog({
       taxPercentage: taxRate,
       taxAmount,
       discountAmount: discount,
-      totalAmount: total,
+      grandTotal: total,
       items: items.map(i => ({
         menuItemId: i.menuItemId,
         name: i.name,
         quantity: i.quantity,
-        priceAtTime: i.price,
+        basePrice: i.price,
         variationName: i.variationName,
         modifiers: i.selectedExtras, // Correct format
         modifiersAmount: i.selectedExtras.reduce((s, e) => s + e.price, 0),
-        totalPrice: ((i.price) + i.selectedExtras.reduce((s, e) => s + e.price, 0)) * i.quantity
+        finalPrice: ((i.price) + i.selectedExtras.reduce((s, e) => s + e.price, 0)) * i.quantity
       })),
     });
   }
@@ -196,25 +227,108 @@ export function CheckoutDialog({
                   )}
                 />
               </div>
+
+              <div className="pt-4 border-t border-gray-100 flex flex-col gap-4">
+                <h4 className="font-bold text-[#1A1D1F]">Order Details</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="orderType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[#1A1D1F] font-bold">Order Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-14 bg-white border-none rounded-2xl shadow-sm focus-visible:ring-primary/20">
+                              <div className="flex items-center gap-2">
+                                {field.value === 'dine-in' && <ChefHat className="w-4 h-4 text-primary" />}
+                                {field.value === 'takeaway' && <ShoppingBag className="w-4 h-4 text-primary" />}
+                                {field.value === 'delivery' && <Truck className="w-4 h-4 text-primary" />}
+                                <SelectValue placeholder="Type" />
+                              </div>
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="rounded-2xl border-none shadow-xl">
+                            <SelectItem value="dine-in" className="py-3 rounded-xl">
+                              <div className="flex items-center gap-2">
+                                <ChefHat className="w-4 h-4" /> Dine-in
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="takeaway" className="py-3 rounded-xl">
+                              <div className="flex items-center gap-2">
+                                <ShoppingBag className="w-4 h-4" /> Takeaway
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="delivery" className="py-3 rounded-xl">
+                              <div className="flex items-center gap-2">
+                                <Truck className="w-4 h-4" /> Delivery
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {form.watch("orderType") === "dine-in" && (
+                    <FormField
+                      control={form.control}
+                      name="tableId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[#1A1D1F] font-bold">Table</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value ? String(field.value) : undefined}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-14 bg-white border-none rounded-2xl shadow-sm focus-visible:ring-primary/20">
+                                <div className="flex items-center gap-2">
+                                  <LayoutDashboard className="w-4 h-4 text-primary" />
+                                  <SelectValue placeholder="Select Table" />
+                                </div>
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="rounded-2xl border-none shadow-xl">
+                              {tables?.map((table: any) => (
+                                <SelectItem
+                                  key={table.id}
+                                  value={String(table.id)}
+                                  className="py-3 rounded-xl"
+                                  disabled={table.status !== "available"}
+                                >
+                                  {table.name} ({table.status})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-gray-100">
               <div className="space-y-2 mb-6">
                 <div className="flex justify-between text-gray-500 font-medium">
                   <span>Subtotal</span>
-                  <span>₹{(subtotal / 100).toFixed(2)}</span>
+                  <span>₹{subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-500 font-medium">
                   <span>Tax ({taxRate}%)</span>
-                  <span>₹{(taxAmount / 100).toFixed(2)}</span>
+                  <span>₹{taxAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-red-500 font-medium">
                   <span>Discount</span>
-                  <span>-₹{(discount / 100).toFixed(2)}</span>
+                  <span>-₹{discount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center pt-2">
                   <span className="text-[#1A1D1F] font-bold">Grand Total</span>
-                  <span className="text-2xl font-extrabold text-primary">₹{(total / 100).toFixed(2)}</span>
+                  <span className="text-2xl font-extrabold text-primary">₹{total.toFixed(2)}</span>
                 </div>
               </div>
               <Button

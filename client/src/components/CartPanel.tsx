@@ -10,26 +10,18 @@ import { useMenu } from "@/hooks/use-menu";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 
+import { useCart } from "@/hooks/use-cart";
+
 interface CartPanelProps {
-  items: CartItem[];
-  subtotal: number;
-  taxRate: number;
-  setTaxRate: (rate: number) => void;
-  taxAmount: number;
-  discount: number;
-  setDiscount: (discount: number) => void;
-  total: number;
-  onUpdateQuantity: (id: number, delta: number, variation?: string) => void;
-  onToggleExtra: (id: number, extra: CartExtra, variation?: string) => void;
-  onUpdateNotes: (id: number, text: string, variation?: string) => void;
-  onRemove: (id: number, variation?: string) => void;
   onCheckout: () => void;
 }
 
-export function CartPanel({
-  items, subtotal, taxRate, setTaxRate, taxAmount, discount, setDiscount, total,
-  onUpdateQuantity, onToggleExtra, onUpdateNotes, onRemove, onCheckout
-}: CartPanelProps) {
+export function CartPanel({ onCheckout }: CartPanelProps) {
+  const {
+    items, subtotal, taxRate, setTaxRate, taxAmount, discount, setDiscount, total,
+    updateQuantity: onUpdateQuantity, toggleExtra: onToggleExtra, 
+    updateNotes: onUpdateNotes, removeItem: onRemove, clearCart
+  } = useCart();
   const { data: menuItems } = useMenu();
   const [footerExpanded, setFooterExpanded] = useState(false);
 
@@ -44,13 +36,25 @@ export function CartPanel({
     <div className="h-full flex flex-col bg-white w-full overflow-hidden">
       <div className="p-4 md:p-6 pb-3 shrink-0">
         <h2 className="text-xl font-extrabold text-[#1A1D1F]">Current Order</h2>
-        <div className="flex gap-2 mt-2">
-          <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold uppercase tracking-wider">
-            POS Terminal
-          </span>
-          <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-bold uppercase tracking-wider">
-            {items.length} Items
-          </span>
+        <div className="flex justify-between items-center mt-2">
+          <div className="flex gap-2">
+            <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold uppercase tracking-wider">
+              POS Terminal
+            </span>
+            <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-bold uppercase tracking-wider">
+              {items.length} Items
+            </span>
+          </div>
+          {items.length > 0 && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-red-500 hover:text-red-600 hover:bg-red-50 text-xs font-bold"
+              onClick={clearCart}
+            >
+              Clear Cart
+            </Button>
+          )}
         </div>
       </div>
 
@@ -65,7 +69,6 @@ export function CartPanel({
             {items.map((item) => {
               const menuItem = menuItems?.find(m => m.id === item.menuItemId);
               const extrasTotal = item.selectedExtras.reduce((s, e) => s + e.price, 0);
-
               return (
                 <div
                   key={`${item.menuItemId}-${item.variationName}`}
@@ -122,22 +125,24 @@ export function CartPanel({
                               <PopoverContent className="w-60 p-3 rounded-[1.5rem] shadow-2xl border-none z-[70]">
                                 <h5 className="font-bold text-sm mb-2 px-1">Add Extras</h5>
                                 <div className="space-y-1.5">
-                                  {menuItem.extras.map((extra, idx) => {
-                                    const isSelected = item.selectedExtras.some(e => e.name === extra.name);
-                                    return (
-                                      <button
-                                        key={idx}
-                                        onClick={() => onToggleExtra(item.menuItemId, extra, item.variationName)}
-                                        className={cn(
-                                          "w-full text-left px-3 py-2.5 rounded-2xl text-xs font-bold flex justify-between transition-all items-center",
-                                          isSelected ? "bg-primary text-white" : "bg-[#F8F9FB] text-gray-600 hover:bg-gray-100"
-                                        )}
-                                      >
-                                        <span>{extra.name}</span>
-                                        <span className={cn("text-[10px]", isSelected ? "text-white/80" : "text-primary")}>+₹{extra.price.toFixed(2)}</span>
-                                      </button>
-                                    );
-                                  })}
+                                  {menuItem.extras.flatMap((extraGroup) => 
+                                    extraGroup.modifiers.map((modifier: any) => {
+                                      const isSelected = item.selectedExtras.some(e => e.name === modifier.name);
+                                      return (
+                                        <button
+                                          key={`${extraGroup.id}-${modifier.id}`}
+                                          onClick={() => onToggleExtra(item.menuItemId, modifier, item.variationName)}
+                                          className={cn(
+                                            "w-full text-left px-3 py-2.5 rounded-2xl text-xs font-bold flex justify-between transition-all items-center",
+                                            isSelected ? "bg-primary text-white" : "bg-[#F8F9FB] text-gray-600 hover:bg-gray-100"
+                                          )}
+                                        >
+                                          <span>{modifier.name}</span>
+                                          <span className={cn("text-[10px]", isSelected ? "text-white/80" : "text-primary")}>+₹{Number(modifier.price).toFixed(2)}</span>
+                                        </button>
+                                      );
+                                    })
+                                  )}
                                 </div>
                               </PopoverContent>
                             </Popover>
@@ -250,15 +255,26 @@ export function CartPanel({
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      {predefinedDiscounts.map((d, i) => (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-[10px] h-9 bg-[#F8F9FB] rounded-xl hover:bg-primary/10 hover:text-primary font-bold"
+                        onClick={() => setDiscount(0)}
+                      >
+                        None
+                      </Button>
+                      {useCart().discounts?.map((d: any) => (
                         <Button
-                          key={i}
+                          key={d.id}
                           variant="ghost"
                           size="sm"
                           className="text-[10px] h-9 bg-[#F8F9FB] rounded-xl hover:bg-primary/10 hover:text-primary font-bold"
-                          onClick={() => setDiscount(d.value)}
+                          onClick={() => {
+                            const val = d.type === 'percentage' ? Math.round(subtotal * (d.value / 10000)) : d.value;
+                            setDiscount(val);
+                          }}
                         >
-                          {d.label}
+                          {d.name}
                         </Button>
                       ))}
                     </div>

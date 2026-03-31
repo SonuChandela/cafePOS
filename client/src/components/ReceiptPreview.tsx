@@ -8,7 +8,7 @@ interface ReceiptPreviewProps {
 
 export function ReceiptPreview({ order }: ReceiptPreviewProps) {
   // Mock UPI string - in real app would be dynamic
-  const upiString = `upi://pay?pa=shop@upi&pn=MakaryoPOS&am=${(order.totalAmount / 100).toFixed(2)}&tn=Order #${order.id}`;
+  const upiString = `upi://pay?pa=shop@upi&pn=MakaryoPOS&am=${order.grandTotal.toFixed(2)}&tn=Order #${order.displayId}`;
 
   return (
     <div id="receipt-content" className="w-full max-w-[420px] mx-auto bg-white text-[#1A1D1F] p-8 rounded-none shadow-none font-sans text-sm leading-relaxed">
@@ -28,7 +28,7 @@ export function ReceiptPreview({ order }: ReceiptPreviewProps) {
       <div className="grid grid-cols-2 gap-4 mb-8 p-5 bg-[#F8F9FB] rounded-[1.5rem]">
         <div className="space-y-1">
           <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Order ID</p>
-          <p className="font-extrabold">#{order.id}</p>
+          <p className="font-extrabold">#{order.displayId}</p>
         </div>
         <div className="space-y-1 text-right">
           <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Date & Time</p>
@@ -52,16 +52,16 @@ export function ReceiptPreview({ order }: ReceiptPreviewProps) {
             <div className="flex-1 min-w-0 pr-4">
               <p className="font-bold text-base leading-tight">{item.name}</p>
               <div className="flex flex-wrap items-center gap-2 mt-1">
-                <span className="text-xs text-gray-400 font-bold uppercase">{item.quantity} × ₹{(item.priceAtTime / 100).toFixed(2)}</span>
+                <span className="text-xs text-gray-400 font-bold uppercase">{item.quantity} × ₹{item.basePrice.toFixed(2)}</span>
                 {item.variationName && <span className="text-[9px] font-black text-primary border border-primary/20 px-1.5 py-0.5 rounded uppercase">{item.variationName}</span>}
-                {Array.isArray(item.modifiers) && item.modifiers.length > 0 && (
+                {Array.isArray((item as any).modifiers) && (item as any).modifiers.length > 0 && (
                   <span className="text-[9px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded italic">
-                    Mod: {(item.modifiers as any[]).map((m: any) => m.name).join(", ")}
+                    Mod: {((item as any).modifiers as any[]).map((m: any) => m.name).join(", ")}
                   </span>
                 )}
               </div>
             </div>
-            <p className="font-black text-base text-right shrink-0">₹{((item.priceAtTime * item.quantity) / 100).toFixed(2)}</p>
+            <p className="font-black text-base text-right shrink-0">₹{(item.basePrice * item.quantity).toFixed(2)}</p>
           </div>
         ))}
       </div>
@@ -70,22 +70,22 @@ export function ReceiptPreview({ order }: ReceiptPreviewProps) {
       <div className="space-y-3 mb-8 p-6 bg-primary/5 rounded-[2rem] border border-primary/10">
         <div className="flex justify-between text-gray-500 font-bold text-sm">
           <span>Subtotal</span>
-          <span className="text-[#1A1D1F]">₹{(order.subtotal / 100).toFixed(2)}</span>
+          <span className="text-[#1A1D1F]">₹{order.subtotal.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-gray-500 font-bold text-sm">
           <span>Tax ({order.taxPercentage}%)</span>
-          <span className="text-[#1A1D1F]">₹{(order.taxAmount / 100).toFixed(2)}</span>
+          <span className="text-[#1A1D1F]">₹{order.taxAmount.toFixed(2)}</span>
         </div>
         {order.discountAmount > 0 && (
           <div className="flex justify-between text-red-500 font-bold text-sm">
             <span>Discount</span>
-            <span>-₹{(order.discountAmount / 100).toFixed(2)}</span>
+            <span>-₹{order.discountAmount.toFixed(2)}</span>
           </div>
         )}
         <div className="flex justify-between items-center pt-3 border-t border-primary/20 mt-1">
           <span className="text-[#1A1D1F] font-black text-lg uppercase tracking-tighter">Total</span>
           <span className="text-3xl font-black text-primary">
-            ₹{(order.totalAmount / 100).toFixed(2)}
+            ₹{order.grandTotal.toFixed(2)}
           </span>
         </div>
       </div>

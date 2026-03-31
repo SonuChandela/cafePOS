@@ -13,10 +13,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
 export default function Home() {
-  const {
-    items, total, subtotal, taxRate, setTaxRate, taxAmount, discount, setDiscount,
-    addItem, updateQuantity, toggleExtra, updateNotes, removeItem, clearCart
-  } = useCart();
+  const { addItem, clearCart, items } = useCart();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
@@ -86,7 +83,7 @@ export default function Home() {
     setNotifications(prev => [{ id: String(Date.now()), message, time: new Date() }, ...prev].slice(0, 20));
   };
 
-  const handleAddItem = (item: any, variation?: any) => {
+  const handleAddItem = (item: any, categoryName?: string, variation?: any) => {
     addItem(item, variation);
     setCartOpen(true);
   };
@@ -112,7 +109,7 @@ export default function Home() {
 
   const handleShare = () => {
     if (!order) return;
-    const itemsList = order.items.map(item => `- ${item.name} x${item.quantity}`).join('\n');
+    const itemsList = order.items.map(item => `- ${item.name} x${item.quantity} - ₹${(item.basePrice / 100).toFixed(2)}`).join('\n');
     const message = encodeURIComponent(
       `*Order Receipt from Makaryo POS*\n\n` +
       `Order ID: #${order.id}\n` +
@@ -120,7 +117,7 @@ export default function Home() {
       `--------------------------\n` +
       `${itemsList}\n` +
       `--------------------------\n` +
-      `*Total Amount: ₹${(order.totalAmount / 100).toFixed(2)}*\n\n` +
+      `*Total Amount: ₹${(order.grandTotal / 100).toFixed(2)}*\n\n` +
       `Thank you for your order!`
     );
     window.open(`https://wa.me/${order.customerPhone}?text=${message}`, '_blank');
@@ -237,18 +234,6 @@ export default function Home() {
           )}>
             <div className="w-[380px] h-full">
               <CartPanel
-                items={items}
-                subtotal={subtotal}
-                taxRate={taxRate}
-                setTaxRate={setTaxRate}
-                taxAmount={taxAmount}
-                discount={discount}
-                setDiscount={setDiscount}
-                total={total}
-                onUpdateQuantity={updateQuantity}
-                onToggleExtra={toggleExtra}
-                onUpdateNotes={updateNotes}
-                onRemove={removeItem}
                 onCheckout={() => setCheckoutOpen(true)}
               />
             </div>
@@ -274,18 +259,6 @@ export default function Home() {
                 <X className="w-5 h-5" />
               </button>
               <CartPanel
-                items={items}
-                subtotal={subtotal}
-                taxRate={taxRate}
-                setTaxRate={setTaxRate}
-                taxAmount={taxAmount}
-                discount={discount}
-                setDiscount={setDiscount}
-                total={total}
-                onUpdateQuantity={updateQuantity}
-                onToggleExtra={toggleExtra}
-                onUpdateNotes={updateNotes}
-                onRemove={removeItem}
                 onCheckout={() => setCheckoutOpen(true)}
               />
             </div>
@@ -296,12 +269,6 @@ export default function Home() {
       <CheckoutDialog
         open={checkoutOpen}
         onOpenChange={setCheckoutOpen}
-        items={items}
-        subtotal={subtotal}
-        taxRate={taxRate}
-        taxAmount={taxAmount}
-        discount={discount}
-        total={total}
         onSuccess={handleCheckoutSuccess}
       />
 

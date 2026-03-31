@@ -1,3 +1,4 @@
+import { subBusinessDays } from "date-fns";
 import {
   menuItems, orders, orderItems, inventoryItems, categories, outlets, business, staff,
   type MenuItem, type InsertMenuItem, type Order, type CreateOrderRequest, type OrderWithItems, type Booking, type InsertBooking, type InventoryItem,
@@ -6,7 +7,14 @@ import {
   variationOptions,
   bookings,
   roles,
-  customer
+  customer,
+  modifiers,
+  menuItemVariations,
+  modifierGroups,
+  variationModifierPrices,
+  plans, subscriptions, taxes, discounts,
+  devices, registerSessions, recipeIngredients, stockTransactions, orderItemModifiers, categoryModifierGroups, printers,
+  users, inventoryCategories, tables, invoices
 } from "../shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -30,6 +38,9 @@ export interface IStorage {
   getInventoryItems(): Promise<InventoryItem[]>;
   updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem>;
   createInventoryItem(data: any): Promise<InventoryItem>;
+  getTaxes(): Promise<any[]>;
+  getDiscounts(): Promise<any[]>;
+  getTables(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -43,9 +54,13 @@ export class DatabaseStorage implements IStorage {
       with: {
         category: {
           with: {
-            modifierGroups: {
+            categoryModifierGroups: {
               with: {
-                modifiers: true,
+                modifierGroup: {
+                  with: {
+                    modifiers: true
+                  }
+                },
               },
             },
           },
@@ -65,13 +80,34 @@ export class DatabaseStorage implements IStorage {
         },
       },
     });
-
     // Map modifiers to "extras" field for frontend compatibility
-    return data.map(item => ({
-      ...item,
-      extras: item.category?.modifierGroups?.flatMap((group: any) => group.modifiers) || [],
-    })) as MenuItemWithVariations[];
+    return data.map(item => {
+      return {
+        ...item,
+        categoryName: item.category?.name || "Uncategorized",
+        variations: item.menuItemVariations.map(v => ({
+          id: v.id,
+          groupId: v.specificOption?.parentGroup?.id,
+          groupName: v.specificOption?.parentGroup?.name,
+          groupDescription: v.specificOption?.parentGroup?.description,
+          optionId: v.specificOption?.id,
+          optionName: v.specificOption?.name,
+          optionPrice: Number(v.price || 0),
+        })),
+        extras: item.category?.categoryModifierGroups?.map((cmg: any) => ({
+          id: cmg.modifierGroup.id,
+          groupName: cmg.modifierGroup.name,
+          isAvailable: cmg.modifierGroup.available,
+          modifiers: cmg.modifierGroup.modifiers.map((m: any) => ({
+            id: m.id,
+            name: m.name,
+            price: Number(m.defaultPrice || 0)
+          }))
+        })) || [],
+      };
+    });
   }
+
 
   async getMenuItemById(id: number): Promise<MenuItem | undefined> {
     const [item] = await db.select().from(menuItems).where(eq(menuItems.id, id));
@@ -87,6 +123,7 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
+
 
   async getOrders(): Promise<OrderWithItems[]> {
     const allOrders = await db.query.orders.findMany({
@@ -166,31 +203,37 @@ export class DatabaseStorage implements IStorage {
       const [order] = await tx.insert(orders).values({
         outletId: orderRequest.outletId, // Required UUID from schema
         tableId: orderRequest.tableId,
+        staffId: orderRequest.staffId,
+        deviceId: orderRequest.deviceId,
         customerId: customerId,
         registerSessionId: orderRequest.registerSessionId,
         subtotal: orderRequest.subtotal,
-        taxAmount: orderRequest.taxAmount,
-        discountAmount: orderRequest.discountAmount,
-        totalAmount: orderRequest.totalAmount,
-        paymentMethod: orderRequest.paymentMethod,
-        paymentStatus: orderRequest.paymentStatus,
-        orderStatus: orderRequest.orderStatus,
-        note: orderRequest.note,
+        orderType: orderRequest.orderType,
         taxesApplied: orderRequest.taxesApplied,
         discountsApplied: orderRequest.discountsApplied,
+        taxAmount: orderRequest.taxAmount,
+        discountAmount: orderRequest.discountAmount,
+        grandTotal: orderRequest.grandTotal,
+        roundOffAmount: orderRequest.roundOffAmount,
+        paymentMethod: orderRequest.paymentMethod,
+        paymentStatus: orderRequest.paymentStatus,
+        paidAmount: orderRequest.paidAmount,
+        dueAmount: orderRequest.dueAmount,
+        orderStatus: orderRequest.orderStatus,
+        note: orderRequest.note,
       }).returning();
 
       for (const item of orderRequest.items) {
         await tx.insert(orderItems).values({
           orderId: order.id,
           menuItemId: item.menuItemId,
+          variationId: item.variationId,
+          variationName: item.variationName,
           name: item.name,
           quantity: item.quantity,
-          priceAtTime: item.priceAtTime,
-          variationName: item.variationName,
-          modifiers: item.modifiers,
+          basePrice: item.basePrice,
           modifiersAmount: item.modifiersAmount,
-          totalPrice: item.totalPrice,
+          finalPrice: item.finalPrice,
           status: item.status as any,
           note: item.note,
         });
@@ -224,7 +267,7 @@ export class DatabaseStorage implements IStorage {
       if (data.orderStatus !== undefined) updateData.orderStatus = data.orderStatus;
       if (data.paymentStatus !== undefined) updateData.paymentStatus = data.paymentStatus;
       if (data.note !== undefined) updateData.note = data.note;
-      if (data.totalAmount !== undefined) updateData.totalAmount = data.totalAmount;
+      if (data.grandTotal !== undefined) updateData.grandTotal = data.grandTotal;
       if (data.subtotal !== undefined) updateData.subtotal = data.subtotal;
       if (data.taxAmount !== undefined) updateData.taxAmount = data.taxAmount;
       if (data.discountAmount !== undefined) updateData.discountAmount = data.discountAmount;
@@ -237,13 +280,14 @@ export class DatabaseStorage implements IStorage {
           await tx.insert(orderItems).values({
             orderId: id,
             menuItemId: item.menuItemId,
+            variationId: item.variationId,
+            variationName: item.variationName || null,
             name: item.name,
             quantity: item.quantity,
-            priceAtTime: item.priceAtTime,
-            variationName: item.variationName || null,
-            modifiers: item.modifiers || null,
+            basePrice: item.basePrice,
+            note: item.note || null,
             modifiersAmount: item.modifiersAmount || 0,
-            totalPrice: item.totalPrice || 0,
+            finalPrice: item.finalPrice || 0,
             status: item.status || "pending",
           });
         }
@@ -295,82 +339,18 @@ export class DatabaseStorage implements IStorage {
     const [item] = await db.insert(inventoryItems).values(data).returning();
     return item;
   }
+
+  async getTaxes(): Promise<any[]> {
+    return await db.select().from(taxes).where(eq(taxes.isActive, true));
+  }
+
+  async getDiscounts(): Promise<any[]> {
+    return await db.select().from(discounts).where(eq(discounts.isActive, true));
+  }
+
+  async getTables(): Promise<any[]> {
+    return await db.select().from(tables);
+  }
 }
 
 export const storage = new DatabaseStorage();
-
-// Robust Seed script that handles relational constraints!
-async function seed() {
-  try {
-    const businesses = await db.select().from(business);
-    if (businesses.length === 0) {
-      console.log("Seeding initial database state...");
-      const [newBusiness] = await db.insert(business).values({
-        name: "Demo Cafe",
-        contact: "1234567890",
-        email: "demo@cafe.com",
-        address: "123 Coffee Street",
-      }).returning();
-
-      const [newOutlet] = await db.insert(outlets).values({
-        name: "Main Branch",
-        businessId: newBusiness.id,
-        address: "123 Coffee Street",
-        mobile: "1234567890",
-        email: "main@cafe.com",
-        fssaiNumber: "FSSAI123",
-      }).returning();
-
-      const [foodCat] = await db.insert(categories).values({
-        name: "Food",
-        outletId: newOutlet.id,
-      }).returning();
-
-      const [bevCat] = await db.insert(categories).values({
-        name: "Beverages",
-        outletId: newOutlet.id,
-      }).returning();
-
-      const items: InsertMenuItem[] = [
-        {
-          name: "Pizza",
-          price: 1000,
-          categoryId: foodCat.id,
-          description: "Delicious cheesy pizza",
-        },
-        {
-          name: "Burger",
-          price: 500,
-          categoryId: foodCat.id,
-          description: "Juicy beef burger",
-        },
-        {
-          name: "Cappuccino",
-          price: 350,
-          categoryId: bevCat.id,
-          description: "Classic Italian coffee"
-        }
-      ];
-
-      for (const item of items) {
-        await storage.createMenuItem(item);
-      }
-
-      // Seed a default staff login (Admin PIN 1234)
-      await db.insert(staff).values({
-        name: "Admin User",
-        pin: "1234",
-        mobile: "0000000000",
-        outletId: newOutlet.id,
-      });
-
-      console.log("Database seeded successfully with schema constraints met!");
-
-    }
-  }
-  catch (err) {
-    console.error("Seed failed (might be already seeded or schema mismatch):", err);
-  }
-}
-
-seed().catch(console.error);
